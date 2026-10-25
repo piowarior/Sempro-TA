@@ -1,7 +1,12 @@
 """
 Unit tests for ShiftGenerator.
-Verifies controlled shift injection: Location (Mean), Scale (Variance), and Shape (Outlier),
-as well as reproducibility with fixed random seed.
+Verifies controlled shift injection:
+- Skenario A: Location (Mean Shift)
+- Skenario B: Scale (Variance Shift)
+- Skenario C: Shape (Outlier Shift)
+- Skenario D: Categorical Proportion Shift
+- Skenario E: Pure Covariate Shift via Biased Subsampling
+And validates support overlap checking.
 """
 
 import numpy as np
@@ -17,6 +22,7 @@ def sample_data():
     df = pd.DataFrame({
         "num1": rng.normal(loc=50.0, scale=10.0, size=500),
         "num2": rng.normal(loc=100.0, scale=20.0, size=500),
+        "cat1": rng.choice(["A", "B", "C"], size=500, p=[0.70, 0.20, 0.10]),
         "label": rng.choice([0, 1], size=500)
     })
     return df
@@ -35,11 +41,10 @@ def test_mean_shift(sample_data):
     shifted_mean = shifted_df["num1"].mean()
     orig_std = sample_data["num1"].std()
 
-    # Shifted mean should have increased by ~1.00 * std
     assert shifted_mean > orig_mean
     assert np.isclose(shifted_mean - orig_mean, 1.00 * orig_std, atol=0.2)
-    # num2 should be unshifted
     assert np.allclose(shifted_df["num2"], sample_data["num2"])
+    assert "support_overlap_pct" in meta
 
 
 def test_variance_shift(sample_data):
@@ -54,7 +59,6 @@ def test_variance_shift(sample_data):
     orig_std = sample_data["num1"].std()
     shifted_std = shifted_df["num1"].std()
 
-    # High variance shift factor is 1.0 + 1.00 * 1.5 = 2.5
     assert shifted_std > orig_std * 2.0
 
 
@@ -72,8 +76,43 @@ def test_outlier_shift(sample_data):
     shifted_max = shifted_df["num1"].max()
     shifted_min = shifted_df["num1"].min()
 
-    # Outliers should produce extreme values beyond original distribution bounds
     assert (shifted_max > orig_max) or (shifted_min < orig_min)
+    assert meta["support_overlap_pct"] < 100.0
+
+
+def test_categorical_shift(sample_data):
+    gen = ShiftGenerator(random_seed=42)
+    # C is the minority category (10%)
+    shifted_df, meta = gen.apply_shift(
+        sample_data,
+        scenario=ShiftScenario.CATEGORICAL_SHIFT,
+        severity=ShiftSeverity.HIGH,
+        target_features=["cat1"]
+    )
+
+    orig_c_count = (sample_data["cat1"] == "C").sum()
+    shifted_c_count = (shifted_df["cat1"] == "C").sum()
+
+    # Minority category C frequency should increase significantly
+    assert shifted_c_count > orig_c_count
+    assert meta["shift_validity_type"] == "synthetic_categorical_perturbation"
+
+
+def test_subsampling_pure_covariate_shift(sample_data):
+    gen = ShiftGenerator(random_seed=42)
+    shifted_df, meta = gen.apply_shift(
+        sample_data,
+        scenario=ShiftScenario.SUBSAMPLING_SHIFT,
+        severity=ShiftSeverity.HIGH,
+        target_features=["num1"]
+    )
+
+    # Subsampling maintains pure covariate shift: all pairs (X, Y) are real
+    assert len(shifted_df) == len(sample_data)
+    assert meta["shift_validity_type"] == "pure_covariate_shift"
+    assert meta["support_overlap_pct"] == 100.0
+    # Mean should have shifted towards higher values due to sigmoid weight
+    assert shifted_df["num1"].mean() > sample_data["num1"].mean()
 
 
 def test_shift_reproducibility(sample_data):

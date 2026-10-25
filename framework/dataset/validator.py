@@ -1,6 +1,7 @@
 """
 Dataset Validation Module.
-Validates tabular structure, data types, target column, missingness, and sample sufficiency.
+Validates tabular structure, data types, target column, missingness,
+sample sufficiency, and class balance / minority class representation.
 """
 
 from typing import Dict, List, Tuple, Any
@@ -21,7 +22,7 @@ class DatasetValidator:
     @staticmethod
     def inspect(df: pd.DataFrame, target_column: str) -> Dict[str, Any]:
         """
-        Inspect dataset metadata, column types, and distributions.
+        Inspect dataset metadata, column types, class distributions, and missingness.
         """
         if df is None or df.empty:
             raise DatasetValidationError("Dataset is empty or None.")
@@ -57,8 +58,14 @@ class DatasetValidator:
                 f"Target '{target_column}' must have at least 2 distinct classes, found {n_classes}."
             )
 
+        # Minority class check
+        min_class_count = min(class_counts.values())
+        min_class_ratio = min_class_count / n_rows
+        imbalance_warning = min_class_ratio < 0.05  # Severe imbalance if < 5%
+
         missing_counts = df.isnull().sum().to_dict()
         total_missing = sum(missing_counts.values())
+        high_missing_cols = [c for c, count in missing_counts.items() if count / n_rows > 0.40]
 
         return {
             "n_rows": n_rows,
@@ -69,6 +76,9 @@ class DatasetValidator:
             "target_column": target_column,
             "n_classes": n_classes,
             "class_distribution": class_counts,
+            "minority_class_ratio": round(min_class_ratio, 4),
+            "is_severely_imbalanced": imbalance_warning,
             "total_missing_values": int(total_missing),
             "missing_per_column": missing_counts,
+            "high_missing_cols": high_missing_cols,
         }

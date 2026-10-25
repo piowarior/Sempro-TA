@@ -1,18 +1,18 @@
 """
-Interactive Web Application for ML Reliability Stress Testing Framework.
-Complies with Section 16 & Section 23 of the Research Specification.
-Provides a 7-Page / 7-Stage Interface:
-  1. Dataset Management
-  2. Experiment Configuration
-  3. Shift Configuration
-  4. Distribution Distance
-  5. Model Evaluation
-  6. Reliability Analysis
-  7. Experiment History and Export
+Interactive Web Application for ML Reliability Stress Testing Framework (Version 1.1.0).
+Complies with Section 16 & 23 of Master Prompt and Addresses All Critiques in perbaikan.md:
+  1. Dataset Management (Credit Default, Nutrition 'nilai-gizi', Custom CSV)
+  2. Experiment Configuration (Internal Baseline Training or External .pkl Model Upload)
+  3. Shift Configuration (Scenarios A, B, C, D Categorical, E Pure Subsampling + Support Overlap Check)
+  4. Distribution Distance (MMD RBF + Sliced Wasserstein)
+  5. Model Evaluation (5-Fold CV, Degradation Assessment)
+  6. Reliability Analysis (Dynamic Threshold, Per-Scenario & Overall Spearman Correlation with p-values)
+  7. History & Export (Schema 1.1.0 Provenance, CSV, JSON, Markdown)
 """
 
 import os
 import json
+import tempfile
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -25,15 +25,22 @@ from framework.config import (
     ShiftSeverity,
     ModelAlgorithm,
     ShiftType,
-    ThresholdStatus
+    ThresholdStatus,
+    SCHEMA_VERSION,
+    FRAMEWORK_VERSION
 )
 from framework.dataset.validator import DatasetValidator
-from framework.dataset.loader import split_train_test, generate_credit_default_dataset
+from framework.dataset.loader import (
+    split_train_test,
+    generate_credit_default_dataset,
+    generate_nutrition_dataset
+)
 from framework.dataset.preprocessor import TabularPreprocessor
 from framework.shift.generator import ShiftGenerator
 from framework.distance.mmd import calculate_mmd
 from framework.distance.wasserstein import calculate_wasserstein
 from framework.models.baseline import BaselineTrainer
+from framework.models.loader import ExternalModelLoader
 from framework.models.evaluator import ModelEvaluator
 from framework.reliability.degradation import DegradationCalculator
 from framework.reliability.threshold import ReliabilityThresholdChecker
@@ -42,7 +49,7 @@ from framework.pipeline import StressTestingPipeline
 
 # Page setup
 st.set_page_config(
-    page_title="ML Reliability Stress Testing Framework",
+    page_title="ML Reliability Stress Testing Framework v1.1.0",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -78,13 +85,6 @@ st.markdown("""
         font-size: 12px;
         font-weight: 600;
     }
-    .metric-card {
-        background: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 14px;
-        text-align: center;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -99,10 +99,11 @@ if "pipeline_run" not in st.session_state:
     st.session_state.pipeline_run = False
     st.session_state.profile = None
     st.session_state.pipeline = None
+    st.session_state.external_model_path = None
 
 # Sidebar Navigation
 st.sidebar.title("🛡️ ML Stress Testing")
-st.sidebar.markdown("**Evaluasi Ketahanan Model ML terhadap Perubahan Distribusi Data**")
+st.sidebar.markdown(f"**Framework Version `{FRAMEWORK_VERSION}` (Schema `{SCHEMA_VERSION}`)**")
 page = st.sidebar.radio(
     "Tahapan Sistem:",
     [
@@ -118,11 +119,12 @@ page = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "**Spesifikasi Metodologi:**\n"
+    "**Spesifikasi Metodologis (v1.1.0):**\n"
     "- Shift Type: Covariate Shift\n"
-    "- Model: LogReg & XGBoost\n"
-    "- Validasi: 5-Fold Stratified CV\n"
-    "- Distance: MMD (RBF) & Wasserstein\n"
+    "- Skenario: A (Mean), B (Var), C (Outlier), D (Cat), E (Subsample)\n"
+    "- Validasi: Zero Leakage & Support Overlap\n"
+    "- Model: LogReg, XGBoost, atau Pretrained .pkl\n"
+    "- Distance: MMD (RBF) & Sliced Wasserstein\n"
     "- Threshold: 1.5x Std Dev CV"
 )
 
@@ -132,14 +134,18 @@ st.sidebar.info(
 # ==========================================
 if page == "1. Dataset Management":
     st.markdown("<div class='main-header'>Halaman 1 — Dataset Management & Validasi Tabular</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Unggah dataset tabular atau gunakan benchmark sintetis terkalibrasi untuk evaluasi ketahanan.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Unggah dataset tabular atau gunakan benchmark terstandarisasi untuk evaluasi ketahanan.</div>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([1, 2])
     with col1:
         st.subheader("Pilih Sumber Data")
         data_source = st.radio(
             "Sumber Dataset:",
-            ["Benchmark Default (Credit Card Default)", "Upload CSV Kustom"]
+            [
+                "Benchmark 1: Credit Card Default",
+                "Benchmark 2: Klasifikasi Gizi ('nilai-gizi')",
+                "Upload CSV Kustom"
+            ]
         )
 
         if data_source == "Upload CSV Kustom":
@@ -153,20 +159,27 @@ if page == "1. Dataset Management":
                     st.success(f"Berhasil memuat dataset: {uploaded_file.name}")
                 except Exception as e:
                     st.error(f"Gagal membaca CSV: {e}")
+        elif data_source == "Benchmark 2: Klasifikasi Gizi ('nilai-gizi')":
+            if st.button("Terapkan Dataset Nilai Gizi"):
+                st.session_state.dataset = generate_nutrition_dataset(n_samples=2000, random_seed=42)
+                st.session_state.dataset_name = "Nilai_Gizi_Benchmark"
+                st.session_state.target_col = "status_gizi"
+                st.session_state.pipeline_run = False
+                st.success("Dataset dialihkan ke Benchmark Nilai Gizi.")
         else:
-            if st.button("Reset ke Benchmark Standar"):
+            if st.button("Reset ke Benchmark Credit Card"):
                 st.session_state.dataset = generate_credit_default_dataset(n_samples=2500, random_seed=42)
                 st.session_state.dataset_name = "Credit Card Default Benchmark"
                 st.session_state.target_col = "default"
                 st.session_state.pipeline_run = False
-                st.success("Dataset di-reset ke benchmark standar.")
+                st.success("Dataset di-reset ke benchmark Credit Card.")
 
         target_candidates = list(st.session_state.dataset.columns)
         default_idx = target_candidates.index(st.session_state.target_col) if st.session_state.target_col in target_candidates else len(target_candidates) - 1
         st.session_state.target_col = st.selectbox("Pilih Kolom Target (Y):", target_candidates, index=default_idx)
 
     with col2:
-        st.subheader("Hasil Pemeriksaan & Validasi Struktur")
+        st.subheader("Hasil Pemeriksaan & Validasi Struktur Tabular")
         try:
             inspection = DatasetValidator.inspect(st.session_state.dataset, st.session_state.target_col)
             m1, m2, m3, m4 = st.columns(4)
@@ -175,7 +188,10 @@ if page == "1. Dataset Management":
             m3.metric("Fitur Numerik", len(inspection['numeric_features']))
             m4.metric("Fitur Kategorikal", len(inspection['categorical_features']))
 
-            st.markdown(f"**Distribusi Kelas Target:** `{inspection['class_distribution']}` | **Missing Values:** `{inspection['total_missing_values']}`")
+            st.markdown(f"**Distribusi Target:** `{inspection['class_distribution']}` | **Missing Values:** `{inspection['total_missing_values']}`")
+            if inspection.get("is_severely_imbalanced"):
+                st.warning("⚠️ Peringatan: Ketimpangan kelas terdeteksi (minoritas < 5%). Pertimbangkan metrik F1-score macro.")
+
             st.dataframe(st.session_state.dataset.head(6), width='stretch')
         except Exception as e:
             st.error(f"Validasi Gagal: {e}")
@@ -185,27 +201,48 @@ if page == "1. Dataset Management":
 # PAGE 2: EXPERIMENT CONFIGURATION
 # ==========================================
 elif page == "2. Experiment Configuration":
-    st.markdown("<div class='main-header'>Halaman 2 — Konfigurasi Eksperimen & Pembagian Data</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Atur parameter partisi bebas data leakage, algoritma baseline, dan random seed.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-header'>Halaman 2 — Konfigurasi Eksperimen & Model</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Atur parameter partisi bebas data leakage, model baseline (internal atau eksternal .pkl), dan seed.</div>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Parameter Pemisahan & Reproduksibilitas")
-        exp_name = st.text_input("Nama Eksperimen", value="Stress_Test_Final_Evaluation")
+        exp_name = st.text_input("Nama Eksperimen", value="Stress_Test_Evaluation_v1")
         test_size = st.slider("Proporsi Test Set (Baseline & Shift Target)", min_value=0.10, max_value=0.40, value=0.20, step=0.05)
         seed = st.number_input("Fixed Random Seed", value=42, step=1)
         cv_folds = st.selectbox("Jumlah Fold Cross-Validation (Pelatihan Baseline)", [3, 5, 10], index=1)
         multiplier = st.slider("Multiplier Ambang Batas Dinamis (x Std Dev CV)", min_value=1.0, max_value=3.0, value=1.5, step=0.1)
 
     with c2:
-        st.subheader("Pemilihan Algoritma Klasifikasi")
-        use_lr = st.checkbox("Logistic Regression (Model Linier)", value=True)
-        use_xgb = st.checkbox("XGBoost / Gradient Boosting (Model Non-Linier Berbasis Pohon)", value=True)
+        st.subheader("Pilihan Model Klasifikasi")
+        model_mode = st.radio(
+            "Mode Model:",
+            ["Latih Model Baseline Standar (LogReg & XGBoost)", "Gunakan Model Pre-trained Pengguna (.pkl / .joblib)"]
+        )
+
+        use_lr = True
+        use_xgb = True
+        ext_path = None
+
+        if model_mode == "Gunakan Model Pre-trained Pengguna (.pkl / .joblib)":
+            uploaded_model = st.file_uploader("Unggah File Model (.pkl / .joblib)", type=["pkl", "joblib"])
+            if uploaded_model is not None:
+                # Save temp model file
+                tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+                tfile.write(uploaded_model.read())
+                tfile.flush()
+                ext_path = tfile.name
+                st.session_state.external_model_path = ext_path
+                st.success(f"Model eksternal siap diuji: {uploaded_model.name}")
+        else:
+            st.session_state.external_model_path = None
+            use_lr = st.checkbox("Logistic Regression (Model Linier)", value=True)
+            use_xgb = st.checkbox("XGBoost (Model Non-Linier Berbasis Pohon)", value=True)
 
         st.markdown("""
-        > **Pencegahan Data Leakage:**
-        > Seluruh normalisasi (StandardScaler) dan encoding (OneHotEncoder) di-fit **hanya** pada Training Data,
-        > kemudian parameter tersebut dibekukan dan diaplikasikan secara konsisten pada Test Data dan Shifted Test Data.
+        > **Pencegahan Data Leakage Konseptual:**
+        > Scaling (StandardScaler) dan Encoding (OneHotEncoder) di-fit **hanya** pada Training Data.
+        > Jarak statistik dihitung secara murni unsupervised tanpa Target Encoding.
         """)
 
     algos = []
@@ -220,7 +257,8 @@ elif page == "2. Experiment Configuration":
             random_seed=seed,
             algorithms=algos,
             cv_folds=cv_folds,
-            threshold_std_multiplier=multiplier
+            threshold_std_multiplier=multiplier,
+            external_model_path=st.session_state.external_model_path
         )
         st.success("Konfigurasi eksperimen berhasil disimpan!")
 
@@ -230,12 +268,12 @@ elif page == "2. Experiment Configuration":
 # ==========================================
 elif page == "3. Shift Configuration":
     st.markdown("<div class='main-header'>Halaman 3 — Konfigurasi Skenario Pergeseran Distribusi</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Bentuk pergeseran distribusi terkontrol dan pratinjau perubahan statistik data.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Bentuk pergeseran distribusi terkontrol dan periksa validitas asumsi serta overlap support.</div>", unsafe_allow_html=True)
 
     st.subheader("1. Pemilihan Shift Type")
     t1, t2, t3 = st.columns(3)
     with t1:
-        st.markdown("<span class='badge-active'>AKTIF — Fokus Penelitian</span>", unsafe_allow_html=True)
+        st.markdown("<span class='badge-active'>AKTIF — Fokus Utama</span>", unsafe_allow_html=True)
         st.markdown("**Covariate Shift**\n\n$P(X)$ berubah, $P(Y|X)$ diasumsikan konstan.")
     with t2:
         st.markdown("<span class='badge-disabled'>NON-AKTIF — Rencana Pengembangan</span>", unsafe_allow_html=True)
@@ -254,7 +292,9 @@ elif page == "3. Shift Configuration":
             [
                 "Skenario A: Feature Location Shift (Mean Shift)",
                 "Skenario B: Feature Scale/Variance Shift (Variance Shift)",
-                "Skenario C: Feature Shape / Outlier Ingestion (Extreme Shift)"
+                "Skenario C: Feature Shape / Outlier Ingestion (Extreme Shift)",
+                "Skenario D: Categorical Proportion Shift (Frekuensi Kategori)",
+                "Skenario E: Pure Covariate Shift via Biased Selection (P(Y|X) Konstan)"
             ]
         )
         severity_choice = st.select_slider(
@@ -268,28 +308,37 @@ elif page == "3. Shift Configuration":
         preview_feature = st.selectbox("Pilih Fitur untuk Pratinjau Distribusi:", numeric_cols)
 
     with sc2:
-        st.subheader("Pratinjau Distribusi (Baseline vs Shifted)")
-        # Live visual preview of selected shift
+        st.subheader("Pratinjau Distribusi & Pemeriksaan Dukungan (Support Overlap)")
         gen = ShiftGenerator(random_seed=42)
-        scen_enum = ShiftScenario.MEAN_SHIFT if "Location" in scenario_choice else (
-            ShiftScenario.VARIANCE_SHIFT if "Variance" in scenario_choice else ShiftScenario.OUTLIER_SHIFT
-        )
+
+        if "Location" in scenario_choice: scen_enum = ShiftScenario.MEAN_SHIFT
+        elif "Variance" in scenario_choice: scen_enum = ShiftScenario.VARIANCE_SHIFT
+        elif "Outlier" in scenario_choice: scen_enum = ShiftScenario.OUTLIER_SHIFT
+        elif "Categorical" in scenario_choice: scen_enum = ShiftScenario.CATEGORICAL_SHIFT
+        else: scen_enum = ShiftScenario.SUBSAMPLING_SHIFT
+
         sev_enum = ShiftSeverity(severity_choice)
 
-        shifted_df, _ = gen.apply_shift(
-            st.session_state.dataset,
-            scenario=scen_enum,
-            severity=sev_enum,
-            target_features=[preview_feature]
-        )
+        try:
+            shifted_df, meta = gen.apply_shift(
+                st.session_state.dataset,
+                scenario=scen_enum,
+                severity=sev_enum,
+                target_features=[preview_feature] if scen_enum != ShiftScenario.CATEGORICAL_SHIFT else None
+            )
 
-        fig, ax = plt.subplots(figsize=(6, 3))
-        sns.kdeplot(st.session_state.dataset[preview_feature], label="Baseline", color="#0284C7", fill=True, alpha=0.3, ax=ax)
-        sns.kdeplot(shifted_df[preview_feature], label=f"Shifted ({sev_enum.value})", color="#DC2626", fill=True, alpha=0.3, ax=ax)
-        ax.set_title(f"Perubahan Distribusi Fitur: {preview_feature}", fontsize=10, fontweight="bold")
-        ax.legend()
-        st.pyplot(fig)
-        plt.close()
+            st.markdown(f"**Tipe Validitas Shift:** `{meta.get('shift_validity_type')}`")
+            st.markdown(f"**Dukungan Overlap (Support Positivity):** `{meta.get('support_overlap_pct')}%`")
+
+            fig, ax = plt.subplots(figsize=(6, 3))
+            sns.kdeplot(st.session_state.dataset[preview_feature], label="Baseline", color="#0284C7", fill=True, alpha=0.3, ax=ax)
+            sns.kdeplot(shifted_df[preview_feature], label=f"Shifted ({sev_enum.value})", color="#DC2626", fill=True, alpha=0.3, ax=ax)
+            ax.set_title(f"Distribusi Fitur: {preview_feature}", fontsize=10, fontweight="bold")
+            ax.legend()
+            st.pyplot(fig)
+            plt.close()
+        except Exception as e:
+            st.info(f"Pratinjau skenario: {e}")
 
 
 # ==========================================
@@ -302,8 +351,8 @@ elif page == "4. Distribution Distance":
     st.markdown("""
     | Metode Distance | Formulasi Teoretis & Kernel | Mitigasi Skalabilitas |
     |---|---|---|
-    | **Maximum Mean Discrepancy (MMD)** | Estimator unbiased $U$-statistic dengan RBF Gaussian Kernel ($k(a,b)=\exp(-\gamma \|a-b\|^2)$) dan Bandwidth Median Heuristic | Subsampling $N=5{,}000$ untuk mencegah kehabisan memori (*OOM*) |
-    | **Wasserstein Distance** | Sliced Wasserstein Distance (SWD) dengan $L=50$ proyeksi acak seragam pada bola unit dimensi tinggi | Kompleksitas $O(L \cdot N \log N)$ yang sangat efisien dan robust |
+    | **Maximum Mean Discrepancy (MMD)** | Estimator unbiased $U$-statistic dengan RBF Gaussian Kernel dan Bandwidth Median Heuristic | Subsampling $N=5{,}000$ untuk mencegah kehabisan memori (*OOM*) |
+    | **Wasserstein Distance** | Sliced Wasserstein Distance (SWD) dengan $L=50$ proyeksi acak seragam pada bola unit multidimensi | Kompleksitas $O(L \cdot N \log N)$ yang sangat efisien dan robust |
     """)
 
     if not st.session_state.pipeline_run:
@@ -311,7 +360,7 @@ elif page == "4. Distribution Distance":
     else:
         df_res = st.session_state.profile.profile_df
         st.subheader("Matriks Jarak Distribusi Hasil Eksperimen")
-        dist_view = df_res[["shift_scenario", "severity", "mmd_distance", "wasserstein_distance"]].drop_duplicates()
+        dist_view = df_res[["shift_scenario", "severity", "support_overlap_pct", "mmd_distance", "wasserstein_distance"]].drop_duplicates()
         st.dataframe(dist_view, width='stretch')
 
         fig, ax = plt.subplots(figsize=(8, 3.5))
@@ -326,14 +375,22 @@ elif page == "4. Distribution Distance":
 # ==========================================
 elif page == "5. Model Evaluation":
     st.markdown("<div class='main-header'>Halaman 5 — Evaluasi Model & Degradasi Performa</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Pelatihan baseline (5-Fold CV) dan evaluasi respons model pada setiap kondisi shifted data.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Pelatihan baseline (5-Fold CV / External Model) dan evaluasi respons model pada data shifted.</div>", unsafe_allow_html=True)
 
     if st.button("🚀 Jalankan Stress Testing Lengkap Sekarang", type="primary"):
-        with st.spinner("Menjalankan pipeline eksperimen kuantitatif (Stratified Split, 5-Fold CV, Shift Injection, MMD, Wasserstein, Threshold Check)..."):
+        with st.spinner("Menjalankan pipeline eksperimen kuantitatif (Pre-processing, 5 Skenario, MMD, Wasserstein, Threshold Check)..."):
             cfg = getattr(st.session_state, "config", ExperimentConfig(
                 dataset_name=st.session_state.dataset_name,
                 target_column=st.session_state.target_col,
-                random_seed=42
+                random_seed=42,
+                scenarios=[
+                    ShiftScenario.MEAN_SHIFT,
+                    ShiftScenario.VARIANCE_SHIFT,
+                    ShiftScenario.OUTLIER_SHIFT,
+                    ShiftScenario.CATEGORICAL_SHIFT,
+                    ShiftScenario.SUBSAMPLING_SHIFT,
+                ],
+                external_model_path=st.session_state.external_model_path
             ))
             pipe = StressTestingPipeline(config=cfg)
             profile = pipe.run(df=st.session_state.dataset)
@@ -357,7 +414,7 @@ elif page == "5. Model Evaluation":
 
         st.markdown("---")
         st.subheader("2. Tabel Metrik & Degradasi Performa pada Shifted Data")
-        cols_to_show = ["model", "shift_scenario", "severity", "baseline_f1", "shifted_f1", "abs_deg_f1", "rel_deg_f1_pct", "threshold_status"]
+        cols_to_show = ["model", "shift_scenario", "severity", "support_overlap_pct", "baseline_f1", "shifted_f1", "abs_deg_f1", "rel_deg_f1_pct", "threshold_status"]
         st.dataframe(profile.profile_df[cols_to_show], width='stretch')
 
 
@@ -366,7 +423,7 @@ elif page == "5. Model Evaluation":
 # ==========================================
 elif page == "6. Reliability Analysis":
     st.markdown("<div class='main-header'>Halaman 6 — Analisis Ketahanan (*Reliability Analysis*)</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Pemeriksaan pelanggaran batas keandalan dan korelasi Spearman Rank antara jarak statistik vs degradasi performa.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Pemeriksaan pelanggaran ambang batas dan korelasi Spearman Rank (Dekomposisi Global & Per-Skenario).</div>", unsafe_allow_html=True)
 
     if not st.session_state.pipeline_run:
         st.warning("⚠️ Jalankan eksperimen terlebih dahulu pada Halaman 5.")
@@ -391,10 +448,21 @@ elif page == "6. Reliability Analysis":
         for idx, (m_name, c) in enumerate(corrs.items()):
             with c_cols[idx]:
                 st.markdown(f"**Model `{m_name}`**")
-                m_f1 = c["mmd_vs_f1_deg"]
-                w_f1 = c["wasserstein_vs_f1_deg"]
-                st.write(f"• **MMD vs F1 Deg:** $r_s = {m_f1.get('spearman_rho')}$ ($p = {m_f1.get('p_value')}$)")
-                st.write(f"• **Wasserstein vs F1 Deg:** $r_s = {w_f1.get('spearman_rho')}$ ($p = {w_f1.get('p_value')}$)")
+                ov = c.get("overall", {})
+                m_f1 = ov.get("mmd_vs_f1_deg", {})
+                w_f1 = ov.get("wasserstein_vs_f1_deg", {})
+                st.write(f"• **MMD vs F1 (Overall):** $r_s = {m_f1.get('spearman_rho')}$ ($p = {m_f1.get('p_value')}$, sig={m_f1.get('is_significant')})")
+                st.write(f"• **Wasserstein vs F1 (Overall):** $r_s = {w_f1.get('spearman_rho')}$ ($p = {w_f1.get('p_value')}$, sig={w_f1.get('is_significant')})")
+
+                if m_f1.get("warning"):
+                    st.caption(f"ℹ️ {m_f1.get('warning')}")
+
+                # Per-scenario breakdown display
+                per_scen = c.get("per_scenario", {})
+                if per_scen:
+                    st.markdown("**Korelasi Per-Skenario:**")
+                    for s_k, s_v in per_scen.items():
+                        st.caption(f"- `{s_k}`: MMD $r_s={s_v.get('mmd_vs_f1', {}).get('spearman_rho')}$, Wass $r_s={s_v.get('wasserstein_vs_f1', {}).get('spearman_rho')}$")
 
         st.markdown("---")
         st.subheader("3. Visualisasi Reliability Profile")
@@ -420,13 +488,13 @@ elif page == "6. Reliability Analysis":
 # ==========================================
 elif page == "7. History & Export":
     st.markdown("<div class='main-header'>Halaman 7 — Riwayat Eksperimen & Ekspor Artefak</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Unduh tabel lengkap Reliability Profile, konfigurasi JSON, dan laporan ringkasan riset.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Unduh tabel lengkap Reliability Profile (Schema 1.1.0), konfigurasi JSON, dan laporan ringkasan riset.</div>", unsafe_allow_html=True)
 
     if not st.session_state.pipeline_run:
         st.warning("⚠️ Belum ada hasil eksperimen yang tersimpan untuk diekspor. Silakan jalankan eksperimen terlebih dahulu.")
     else:
         profile = st.session_state.profile
-        st.subheader("Ekspor Artefak Eksperimen")
+        st.subheader(f"Ekspor Artefak Eksperimen (Schema Version `{profile.schema_version}`)")
 
         csv_data = profile.profile_df.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -437,8 +505,11 @@ elif page == "7. History & Export":
         )
 
         json_dict = {
+            "schema_version": profile.schema_version,
+            "framework_version": profile.framework_version,
+            "timestamp": profile.timestamp,
             "experiment_id": profile.experiment_id,
-            "dataset": profile.dataset_name,
+            "dataset_name": profile.dataset_name,
             "correlations": profile.compute_correlations(),
             "records": profile.profile_df.to_dict(orient="records")
         }

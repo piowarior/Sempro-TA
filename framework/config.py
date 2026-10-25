@@ -1,11 +1,16 @@
 """
 Framework Configuration and Enums for ML Reliability Stress Testing.
-Defines types, experimental constants, data structures, and thresholds.
+Defines types, experimental constants, data structures, thresholds, and schema versioning.
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any
+
+
+SCHEMA_VERSION = "1.1.0"
+FRAMEWORK_VERSION = "1.1.0"
 
 
 class ShiftType(str, Enum):
@@ -15,9 +20,11 @@ class ShiftType(str, Enum):
 
 
 class ShiftScenario(str, Enum):
-    MEAN_SHIFT = "mean_shift"          # Skenario A: Feature Location Shift
-    VARIANCE_SHIFT = "variance_shift"  # Skenario B: Feature Scale/Variance Shift
-    OUTLIER_SHIFT = "outlier_shift"    # Skenario C: Feature Shape / Outlier Ingestion
+    MEAN_SHIFT = "mean_shift"                  # Skenario A: Feature Location Shift
+    VARIANCE_SHIFT = "variance_shift"          # Skenario B: Feature Scale/Variance Shift
+    OUTLIER_SHIFT = "outlier_shift"            # Skenario C: Feature Shape / Outlier Ingestion
+    CATEGORICAL_SHIFT = "categorical_shift"    # Skenario D: Categorical Proportion Shift
+    SUBSAMPLING_SHIFT = "subsampling_shift"    # Skenario E: Pure Covariate Shift via Biased Selection
 
 
 class ShiftSeverity(float, Enum):
@@ -29,6 +36,7 @@ class ShiftSeverity(float, Enum):
 class ModelAlgorithm(str, Enum):
     LOGISTIC_REGRESSION = "logistic_regression"
     XGBOOST = "xgboost"
+    EXTERNAL_PRETRAINED = "external_pretrained"  # Model buatan pengguna (.pkl / .joblib)
 
 
 class DistanceMethod(str, Enum):
@@ -47,6 +55,12 @@ class ThresholdStatus(str, Enum):
     BREACHED = "Melewati Ambang Batas (Model Gagal / Berisiko)"
 
 
+class RunStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    FAILED = "FAILED"
+
+
 @dataclass
 class ExperimentConfig:
     dataset_name: str
@@ -54,6 +68,7 @@ class ExperimentConfig:
     feature_columns: List[str] = field(default_factory=list)
     test_size: float = 0.20
     random_seed: int = 42
+    seeds: List[int] = field(default_factory=lambda: [42])  # Multi-seed support for consistency
     algorithms: List[ModelAlgorithm] = field(
         default_factory=lambda: [ModelAlgorithm.LOGISTIC_REGRESSION, ModelAlgorithm.XGBOOST]
     )
@@ -74,6 +89,10 @@ class ExperimentConfig:
     cv_folds: int = 5
     threshold_std_multiplier: float = 1.5
     mmd_subsample_limit: int = 5000  # Subsampling OOM mitigation
+    external_model_path: Optional[str] = None  # Jalur file .pkl model pre-trained pengguna
+    threshold_policy: ThresholdPolicy = ThresholdPolicy.DYNAMIC_CV_STD
+    static_min_f1: Optional[float] = None
+    static_max_degradation: Optional[float] = None
 
 
 @dataclass
@@ -92,6 +111,7 @@ class BaselineEvaluation:
     cv_scores_std: Dict[str, float]
     test_metrics: EvaluationMetrics
     fit_time_seconds: float = 0.0
+    is_external_model: bool = False
 
 
 @dataclass
@@ -105,4 +125,6 @@ class ShiftResult:
     degradation_absolute: Dict[str, Dict[str, float]]  # model_name -> {metric: abs_deg}
     degradation_relative_pct: Dict[str, Dict[str, float]]  # model_name -> {metric: rel_deg%}
     threshold_status: Dict[str, ThresholdStatus]  # model_name -> status
-    threshold_value: Dict[str, float]  # model_name -> dynamic threshold (1.5 * std_dev)
+    threshold_value: Dict[str, float]  # model_name -> threshold value
+    support_overlap_pct: float = 100.0  # % sample shifted yang berada di dalam support train
+    shift_validity_type: str = "synthetic_perturbation"  # or pure_covariate_shift

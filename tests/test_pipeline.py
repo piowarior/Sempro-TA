@@ -61,4 +61,5 @@ def test_pipeline_end_to_end():
 
     # Summary report
     summary_md = profile.generate_markdown_summary()
-    assert "# Ringkasan Reliability Profile" in summary_md
+    assert "Reliability Profile" in summary_md
+    assert "Schema Version" in summary_md
