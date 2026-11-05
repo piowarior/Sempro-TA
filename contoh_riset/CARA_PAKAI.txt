@@ -1,0 +1,24 @@
+======================================================================
+PANDUAN PENGGUNAAN PROJEK STRESS TESTING ML
+======================================================================
+1. TARO DATASET KAMU:
+   - Letakkan file CSV kamu di folder: data/
+   - Atau gunakan data contoh yang sudah ada: data/credit_card_sample.csv
+
+2. ATUR KONFIGURASI:
+   - Buka file: config/experiment_config.json
+   - Ubah "target_column" sesuai nama kolom label klasifikasi kamu.
+
+3. CARA MENJALANKAN (PILIH SALAH SATU):
+   A) MODE WEB INTERAKTIF (Paling Direkomendasikan):
+      Buka terminal dan jalankan:
+      streamlit run app.py
+
+   B) MODE TERMINAL OTOMATIS (Headless):
+      python run_experiments.py
+
+4. MELIHAT HASIL:
+   - Tabel profil reliabilitas: output/reliability_profile.csv
+   - Ringkasan riset: output/executive_summary.md
+   - Gambar visualisasi: output/*.png
+======================================================================
