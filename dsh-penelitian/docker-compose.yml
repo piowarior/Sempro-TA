@@ -1,0 +1,118 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: dsh-mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: dsh_db
+      MYSQL_USER: dsh_user
+      MYSQL_PASSWORD: dsh_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-psecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: dsh-temporal-server
+    restart: always
+    environment:
+      - DB=mysql8
+      - MYSQL_SEEDS=mysql
+      - DB_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PWD=secret
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: dsh-temporal-ui
+    restart: always
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:8088
+    depends_on:
+      - temporal
+    ports:
+      - "8088:8080"
+
+  temporal-worker:
+    build:
+      context: ./temporal-worker
+      dockerfile: Dockerfile
+    container_name: dsh-temporal-worker
+    restart: always
+    environment:
+      - TEMPORAL_HOST=temporal:7233
+      - BACKEND_API_URL=http://backend:8000
+      - PORT=9000
+    depends_on:
+      - temporal
+    ports:
+      - "9000:9000"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dsh-backend-api
+    restart: always
+    environment:
+      - APP_NAME=DSH-Klinik
+      - APP_ENV=local
+      - APP_KEY=base64:sW3790F3Z1O/s7lY99lT2a5Y9h0Y5UvM9P8kX2b1Q0w=
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8000
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=dsh_db
+      - DB_USERNAME=dsh_user
+      - DB_PASSWORD=dsh_password
+      - TEMPORAL_WORKER_URL=http://temporal-worker:9000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      temporal-worker:
+        condition: service_started
+    ports:
+      - "8000:8000"
+
+  outbox-dispatcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dsh-outbox-dispatcher
+    restart: always
+    command: ["php", "artisan", "outbox:dispatch", "--daemon", "--sleep=2"]
+    environment:
+      - APP_NAME=DSH-Klinik
+      - APP_ENV=local
+      - APP_KEY=base64:sW3790F3Z1O/s7lY99lT2a5Y9h0Y5UvM9P8kX2b1Q0w=
+      - APP_DEBUG=true
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=dsh_db
+      - DB_USERNAME=dsh_user
+      - DB_PASSWORD=dsh_password
+      - TEMPORAL_WORKER_URL=http://temporal-worker:9000
+    depends_on:
+      - backend
+      - temporal-worker
+
+volumes:
+  mysql_data:
+
+

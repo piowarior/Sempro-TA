@@ -1,0 +1,211 @@
+@startuml
+!theme plain
+skinparam linetype ortho
+
+entity "users" as users {
+  * id : BIGINT <<PK, AI>>
+  --
+  * username : VARCHAR(50) <<UNIQUE>>
+  * password : VARCHAR(255)
+  * name : VARCHAR(100)
+  * role : ENUM('admin', 'patient')
+  remember_token : VARCHAR(100)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "patients" as patients {
+  * id : BIGINT <<PK, AI>>
+  --
+  user_id : BIGINT <<FK, UNIQUE, NULLABLE>>
+  * patient_number : VARCHAR(50) <<UNIQUE>>
+  * name : VARCHAR(100)
+  * birth_date : DATE
+  * gender : ENUM('L', 'P')
+  phone_number : VARCHAR(20)
+  address : TEXT
+  * patient_type : ENUM('umum', 'mhls')
+  * status : ENUM('active', 'inactive')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "patient_progress_sessions" as sessions {
+  * id : BIGINT <<PK, AI>>
+  --
+  * patient_id : BIGINT <<FK>>
+  * session_number : VARCHAR(50)
+  * session_date : DATE
+  staff_notes : TEXT
+  examination_summary : TEXT
+  * recorded_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "toxin_assessment_results" as toxin_results {
+  * id : BIGINT <<PK, AI>>
+  --
+  * session_id : BIGINT <<FK, UNIQUE>>
+  * patient_id : BIGINT <<FK>>
+  * total_indicated : INT
+  * level : ENUM('Level 1', 'Level 2', 'Level 3')
+  * assessment_date : DATE
+  notes : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "toxin_assessment_answers" as toxin_answers {
+  * id : BIGINT <<PK, AI>>
+  --
+  * result_id : BIGINT <<FK>>
+  * indicator_number : INT
+  * indicator_name : VARCHAR(255)
+  * is_indicated : BOOLEAN
+  created_at : TIMESTAMP
+}
+
+entity "body_measurements" as body_measurements {
+  * id : BIGINT <<PK, AI>>
+  --
+  * session_id : BIGINT <<FK, UNIQUE>>
+  * patient_id : BIGINT <<FK>>
+  weight : DECIMAL(5,2)
+  bmi : DECIMAL(4,2)
+  waist_circumference : DECIMAL(5,2)
+  body_fat : DECIMAL(4,2)
+  water : DECIMAL(4,2)
+  muscle_mass : DECIMAL(5,2)
+  physical_rating : INT
+  cell_age : INT
+  bone_mass : DECIMAL(4,2)
+  visceral_fat : DECIMAL(4,2)
+  body_temperature : DECIMAL(4,2)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "blood_measurements" as blood_measurements {
+  * id : BIGINT <<PK, AI>>
+  --
+  * session_id : BIGINT <<FK, UNIQUE>>
+  * patient_id : BIGINT <<FK>>
+  blood_pressure : VARCHAR(20)
+  heart_rate : INT
+  hemoglobin : DECIMAL(4,2)
+  glucose : DECIMAL(5,2)
+  cholesterol : DECIMAL(5,2)
+  uric_acid : DECIMAL(4,2)
+  ketone : DECIMAL(4,2)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "activity_plans" as activity_plans {
+  * id : BIGINT <<PK, AI>>
+  --
+  * patient_id : BIGINT <<FK>>
+  session_id : BIGINT <<FK, NULLABLE>>
+  * name : VARCHAR(255)
+  * description : TEXT
+  * start_date : DATE
+  * end_date : DATE
+  * schedule_days : JSON
+  * frequency_type : VARCHAR(50)
+  * reminder_time : TIME
+  additional_notes : TEXT
+  * status : ENUM('active', 'completed', 'cancelled', 'updated')
+  created_by_user_id : BIGINT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "activity_schedules" as activity_schedules {
+  * id : BIGINT <<PK, AI>>
+  --
+  * activity_plan_id : BIGINT <<FK>>
+  * scheduled_date : DATE
+  * reminder_time : TIME
+  * status : ENUM('pending', 'reminder_sent', 'reported', 'overdue', 'cancelled')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "patient_activity_reports" as activity_reports {
+  * id : BIGINT <<PK, AI>>
+  --
+  * activity_plan_id : BIGINT <<FK>>
+  activity_schedule_id : BIGINT <<FK, NULLABLE>>
+  * patient_id : BIGINT <<FK>>
+  * activity_date : DATE
+  * report_time : TIMESTAMP
+  * execution_status : ENUM('dilaksanakan', 'tidak_dilaksanakan')
+  patient_notes : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "notification_logs" as notification_logs {
+  * id : BIGINT <<PK, AI>>
+  --
+  activity_plan_id : BIGINT <<FK, NULLABLE>>
+  * patient_id : BIGINT <<FK>>
+  * notification_type : VARCHAR(50)
+  * recipient : VARCHAR(100)
+  * message : TEXT
+  * sent_at : TIMESTAMP
+  * delivery_status : ENUM('success', 'failed')
+  provider_response : TEXT
+  created_at : TIMESTAMP
+}
+
+entity "outbox_events" as outbox_events {
+  * id : BIGINT <<PK, AI>>
+  --
+  * event_id : CHAR(36) <<UNIQUE>>
+  * event_type : VARCHAR(100)
+  * aggregate_type : VARCHAR(100)
+  * aggregate_id : VARCHAR(100)
+  * payload : JSON
+  * correlation_id : CHAR(36)
+  * event_version : INT
+  * status : ENUM('pending', 'published', 'failed')
+  * retry_count : INT
+  last_error : TEXT
+  * occurred_at : TIMESTAMP
+  published_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "workflow_references" as workflow_references {
+  * id : BIGINT <<PK, AI>>
+  --
+  * activity_plan_id : BIGINT <<FK>>
+  * workflow_id : VARCHAR(100) <<UNIQUE>>
+  run_id : VARCHAR(100)
+  * workflow_type : VARCHAR(100)
+  * status : ENUM('running', 'completed', 'failed', 'terminated', 'cancelled')
+  * started_at : TIMESTAMP
+  completed_at : TIMESTAMP
+  last_heartbeat_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+users ||--o| patients : "has login account"
+patients ||--o{ sessions : "has examinations"
+sessions ||--o| toxin_results : "classified into"
+toxin_results ||--o{ toxin_answers : "contains 50 items"
+sessions ||--o| body_measurements : "measures body"
+sessions ||--o| blood_measurements : "measures blood & ketone"
+patients ||--o{ activity_plans : "assigned to"
+sessions ||--o{ activity_plans : "originated from"
+activity_plans ||--o{ activity_schedules : "generates schedules"
+activity_plans ||--o{ activity_reports : "reported by patient"
+activity_schedules ||--o| activity_reports : "matches schedule"
+activity_plans ||--o{ notification_logs : "triggers notifications"
+activity_plans ||--o| workflow_references : "orchestrated by"
+@enduml
+

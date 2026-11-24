@@ -1,0 +1,51 @@
+@startuml
+!theme plain
+autonumber
+
+actor "Petugas Klinik" as Admin
+participant "Web Admin" as Web
+participant "Laravel API" as API
+database "MySQL (DB Transaction)" as DB
+participant "Outbox Dispatcher" as Dispatcher
+participant "Temporal Client" as TempClient
+participant "Temporal Server" as TempServer
+participant "Temporal Worker" as Worker
+
+Admin -> Web : Buat Instruksi Aktivitas Mandiri
+Web -> API : POST /api/admin/activity-plans
+activate API
+
+API -> API : Validasi request & hitung jadwal tanggal
+API -> DB : BEGIN TRANSACTION
+API -> DB : INSERT INTO activity_plans
+API -> DB : INSERT INTO activity_schedules
+API -> DB : INSERT INTO outbox_events\n(event_type: 'ActivityPlanCreated', status: 'pending', correlation_id)
+API -> DB : COMMIT TRANSACTION
+API --> Web : 201 Created (Data Tersimpan Aman)
+deactivate API
+
+== Asynchronous Event Dispatching ==
+
+loop Every interval / Triggered
+  Dispatcher -> DB : SELECT * FROM outbox_events WHERE status = 'pending' FOR UPDATE SKIP LOCKED
+  DB --> Dispatcher : Return pending event
+  activate Dispatcher
+  
+  Dispatcher -> TempClient : Dispatch(event_type, payload)
+  TempClient -> TempServer : StartWorkflowExecution\n(WorkflowId: 'activity-plan-{id}', WorkflowType: 'ActivityPlanWorkflow')
+  TempServer --> TempClient : Workflow Started (RunID)
+  
+  Dispatcher -> DB : INSERT/UPDATE workflow_references (workflow_id, run_id, status: 'running')
+  Dispatcher -> DB : UPDATE outbox_events SET status = 'published', published_at = NOW()
+  deactivate Dispatcher
+end
+
+== Worker Execution ==
+
+TempServer -> Worker : Task Scheduled (Run Workflow)
+activate Worker
+Worker -> Worker : Execute ActivityPlanWorkflow(planData)
+Worker -> TempServer : Durable Timer(reminder_time - now)
+deactivate Worker
+@enduml
+

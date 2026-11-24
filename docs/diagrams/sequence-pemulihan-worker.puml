@@ -1,0 +1,42 @@
+@startuml
+!theme plain
+autonumber
+
+participant "Temporal Server\n(History & Event Store)" as Server
+participant "Temporal Worker\n(Go Process)" as Worker
+database "MySQL" as DB
+actor "Pasien" as Patient
+
+== 1. Kondisi Normal Sebelum Gangguan ==
+Server -> Worker : WorkflowTaskScheduled (ActivityPlanWorkflow)
+Worker -> Worker : Inisialisasi state, baca jadwal
+Worker -> Server : workflow.NewTimer(duration)
+note right of Server: Server mencatat TimerStartedEvent di Event History.\nStatus workflow aman di server.
+
+== 2. Skenario Gangguan: Worker Mengalami Crash / Dimatikan ==
+Worker -> Worker : [CRASH / KILLED (SIGKILL / Docker Stop)]
+note over Worker: Worker OFF / Mati total!\nTidak ada proses berjalan di worker container.
+
+note over Server: Timer tetap berjalan secara mandiri di Temporal Server.\nWaktu pengingat tercapai saat Worker masih mati.\nServer membuat Task: TimerFiredEvent & menaruhnya di Task Queue.
+
+== 3. Pemulihan: Worker Dijalankan Kembali (Self-Healing) ==
+Worker -> Worker : [Worker Restarted / Docker Start]
+Worker -> Server : PollWorkflowTaskQueue('activity-plan-queue')
+Server -> Worker : Deliver History (Semua event sebelumnya + TimerFired)
+
+Worker -> Worker : REPLAY HISTORY secara deterministik:
+note over Worker: Workflow melanjutkan eksekusi tepat di baris\nsetelah Timer selesai tanpa mengulang langkah sebelumnya!
+
+== 4. Kelanjutan Alur Tanpa Kehilangan State ==
+Worker -> Server : ScheduleActivity('SendActivityReminderActivity')
+Server -> Worker : ExecuteActivity
+Worker -> DB : POST /api/internal/schedules/{id}/reminder-sent
+DB --> Worker : 200 OK (Reminder Log Saved)
+Worker -> Server : CompleteActivity
+
+Worker -> Server : WaitSignal or WaitTimer (Window Laporan Pasien)
+Patient -> DB : Kirim Laporan via Mobile App
+DB -> Server : Signal 'patient-reported-signal'
+Server -> Worker : Deliver Signal into workflow
+Worker -> Worker : Catat laporan, lanjutkan ke jadwal berikutnya!
+@enduml

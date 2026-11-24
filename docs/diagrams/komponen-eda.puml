@@ -1,0 +1,41 @@
+@startuml
+!theme plain
+
+package "Event-Driven Architecture (EDA) Components" {
+  component [Event Producer\n(Laravel OutboxService)] as Producer
+  
+  database "Event Store / Transactional Outbox\n(outbox_events Table)" as OutboxStore {
+    [Pending Events]
+    [Published Events]
+    [Failed / Dead-letter]
+  }
+  
+  component [Event Dispatcher Daemon\n(Artisan outbox:dispatch)] as Dispatcher
+  
+  interface "Idempotency Manager\n(Correlation ID / Workflow Ref)" as Idempotency
+  
+  package "Event Consumers / Handlers" {
+    [ActivityPlan EventHandler] as PlanHandler
+    [PatientReport EventHandler] as ReportHandler
+    [ProgressRecorded EventHandler] as ProgressHandler
+  }
+  
+  component [Temporal Client Service] as TempClient
+  component [Audit & Event Logger] as Logger
+}
+
+[Laravel Controllers / Services] --> Producer : 1. Record Domain Event in DB Transaction
+Producer --> OutboxStore : 2. Atomic INSERT with Business Entities
+
+Dispatcher --> OutboxStore : 3. Poll Pending Events (FOR UPDATE SKIP LOCKED)
+Dispatcher --> Idempotency : 4. Check Duplicate & Correlation ID
+Dispatcher --> PlanHandler : 5. Dispatch Event
+Dispatcher --> ReportHandler
+Dispatcher --> ProgressHandler
+
+PlanHandler --> TempClient : 6. StartWorkflow / SignalUpdate / Cancel
+ReportHandler --> TempClient : 7. SignalPatientReport
+ProgressHandler --> Logger : 8. Record Progress Audit Log
+
+TempClient --> OutboxStore : 9. Mark Event as 'published' (or increment retry on fail)
+@enduml

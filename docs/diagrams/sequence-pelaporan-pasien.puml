@@ -1,0 +1,36 @@
+@startuml
+!theme plain
+autonumber
+
+actor "Pasien MHLS" as Patient
+participant "Mobile App Pasien" as Mobile
+participant "Laravel Backend API" as API
+database "MySQL (dsh_db)" as DB
+participant "Outbox Dispatcher" as Outbox
+participant "Temporal Server" as TempServer
+participant "Temporal Worker\n(Workflow In-Memory)" as Worker
+
+Patient -> Mobile : Buka menu Lapor Aktivitas\nPilih Status ('Dilaksanakan'), isi catatan
+Mobile -> API : POST /api/patient/activities/{id}/report
+activate API
+
+API -> DB : BEGIN TRANSACTION
+API -> DB : INSERT INTO patient_activity_reports
+API -> DB : UPDATE activity_schedules SET status = 'reported'
+API -> DB : INSERT INTO outbox_events (PatientActivityReported, status: 'pending')
+API -> DB : COMMIT TRANSACTION
+API --> Mobile : 201 Created (Laporan tersimpan di DB)
+deactivate API
+
+== Pengiriman Signal ke Temporal Workflow ==
+Outbox -> DB : SELECT * FROM outbox_events WHERE status = 'pending'
+DB --> Outbox : Return Event 'PatientActivityReported'
+
+Outbox -> TempServer : SignalWorkflowExecution\n(WorkflowID: activity-plan-{id}, Signal: patient-reported-signal)
+TempServer --> Outbox : Signal Delivered
+Outbox -> DB : UPDATE outbox_events SET status = 'published'
+
+TempServer -> Worker : Deliver Signal into running workflow channel
+Worker -> Worker : reportSelector triggered!\nCatat laporan pasien ke WorkflowState
+Worker -> Worker : Lanjutkan loop ke jadwal hari berikutnya (Durable Timer berikutnya)
+@enduml

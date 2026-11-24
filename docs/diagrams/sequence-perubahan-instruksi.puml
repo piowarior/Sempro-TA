@@ -1,0 +1,36 @@
+@startuml
+!theme plain
+autonumber
+
+actor "Petugas Klinik" as Admin
+participant "Web Admin" as Web
+participant "Laravel Backend API" as API
+database "MySQL (dsh_db)" as DB
+participant "Outbox Dispatcher" as Outbox
+participant "Temporal Server" as TempServer
+participant "Temporal Worker" as Worker
+
+Admin -> Web : Ubah Jam Pengingat atau Periode Aktivitas
+Web -> API : PUT /api/admin/activity-plans/{id}
+activate API
+
+API -> DB : BEGIN TRANSACTION
+API -> DB : UPDATE activity_plans
+API -> DB : Hapus jadwal masa depan yang belum dilaporkan
+API -> DB : GENERATE ulang activity_schedules baru
+API -> DB : INSERT INTO outbox_events (ActivityPlanUpdated, status: 'pending')
+API -> DB : COMMIT TRANSACTION
+API --> Web : 200 OK
+deactivate API
+
+== Pengiriman Signal Perubahan ke Temporal ==
+Outbox -> DB : SELECT * FROM outbox_events WHERE status = 'pending'
+DB --> Outbox : Return Event 'ActivityPlanUpdated'
+
+Outbox -> TempServer : SignalWorkflowExecution\n(WorkflowID: activity-plan-{id}, Signal: update-plan-signal)
+TempServer --> Outbox : Signal Delivered
+Outbox -> DB : UPDATE outbox_events SET status = 'published'
+
+TempServer -> Worker : Deliver Signal into workflow
+Worker -> Worker : updateSelector triggered!\nBatalkan timer jadwal lama secara presisi!\nGanti daftar jadwal dengan jadwal baru!\nSet ulang Durable Timer sesuai jam pengingat baru.
+@enduml

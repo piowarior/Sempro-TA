@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+title Lifecycle of ActivityPlanWorkflow (Durable Workflow Orchestration)
+
+[*] --> Initialized : ActivityPlanCreated Event Received
+
+state Initialized {
+  [*] --> LoadScheduleList
+  LoadScheduleList --> SetQueryHandler : Register get-workflow-state
+}
+
+state "Active Schedule Loop (Day 1..N)" as ScheduleLoop {
+  [*] --> CalculateTimer : Next Schedule Item
+  CalculateTimer --> WaitingTimer : workflow.NewTimer(duration)
+  
+  state WaitingTimer {
+    note right: Durable Timer in Temporal Server.\nTahan crash & worker restart!
+  }
+  
+  WaitingTimer --> ExecuteReminderActivity : Timer Elapsed
+  WaitingTimer --> Cancelled : Receive CancelPlanSignal
+  WaitingTimer --> UpdateSchedule : Receive UpdatePlanSignal
+
+  ExecuteReminderActivity --> WaitingPatientReport : SendActivityReminderActivity
+  
+  state WaitingPatientReport {
+    note right: Selector: Wait Signal or Window Timeout
+  }
+
+  WaitingPatientReport --> RecordReportSuccess : Receive PatientReportSignal
+  WaitingPatientReport --> RecordReportOverdue : Window Timeout (Deadline)
+  WaitingPatientReport --> Cancelled : Receive CancelPlanSignal
+
+  RecordReportSuccess --> CheckNextSchedule
+  RecordReportOverdue --> CheckNextSchedule
+  
+  CheckNextSchedule --> CalculateTimer : More schedules exist
+}
+
+state CompleteState as "Completed" {
+  ExecuteCompleteActivity : CompletePlanActivity(planID)
+}
+
+Initialized --> ScheduleLoop : Start Execution
+ScheduleLoop --> CompleteState : All Schedules Processed
+CompleteState --> [*] : Workflow Execution Closed
+
+state Cancelled {
+  CleanupSchedules : Update Status to Cancelled
+}
+Cancelled --> [*] : Terminated Gracefully
+@enduml

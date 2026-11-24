@@ -1,0 +1,28 @@
+@startuml
+!theme plain
+autonumber
+
+participant "Temporal Server\n(Durable Timer)" as TempServer
+participant "Temporal Worker\n(ActivityPlanWorkflow)" as Worker
+participant "Notification Provider\n(Gateway / Mock)" as NotifGateway
+participant "Laravel Backend API" as API
+database "MySQL (dsh_db)" as DB
+actor "Pasien MHLS" as Patient
+
+TempServer -> TempServer : Durable Timer tercapai sesuai jadwal
+TempServer -> Worker : Timer Fired! Resume Workflow execution
+Worker -> Worker : Schedule Activity: SendActivityReminderActivity
+
+Worker -> API : POST /api/internal/schedules/{id}/reminder-sent
+activate API
+API -> DB : UPDATE activity_schedules SET status = 'reminder_sent'
+API -> DB : INSERT INTO notification_logs (recipient, message, status: 'success')
+API --> Worker : 200 OK
+deactivate API
+
+Worker -> NotifGateway : Dispatch Push / Message Notification
+NotifGateway --> Patient : Kirim Pengingat Aktivitas ("Saatnya tidur sebelum 22.00...")
+
+Worker -> TempServer : Complete Activity
+Worker -> TempServer : Start Report Window Timer (Menunggu Laporan Pasien)
+@enduml

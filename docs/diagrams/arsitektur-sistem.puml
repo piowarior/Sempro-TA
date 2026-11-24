@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam componentStyle uml2
+
+package "Client Layer" {
+  [Flutter Mobile App\n(Pasien DSH)] as MobileApp
+  [Web Admin SPA/Blade\n(Petugas Klinik DSH)] as WebAdmin
+}
+
+package "API & Application Layer (dsh-penelitian)" {
+  [Laravel REST API Backend] as LaravelAPI
+  [Auth & RBAC Middleware] as Auth
+  [Patient & Exam Services] as ExamService
+  [Activity Plan Service] as ActivityService
+  [Transactional Outbox Producer] as OutboxProducer
+  [Outbox Dispatcher Daemon] as OutboxDispatcher
+}
+
+package "Database Layer" {
+  database "MySQL 8.0" {
+    [Business Tables\n(patients, sessions, measurements,\nactivity_plans, reports)] as BusinessDB
+    [outbox_events Table] as OutboxDB
+    [workflow_references Table] as WorkflowRefDB
+  }
+}
+
+package "Workflow Orchestration (Temporal)" {
+  component "Temporal Server (gRPC:7233)" as TemporalServer {
+    [Temporal Engine & History] as TempEngine
+    [Task Queue: 'activity-plan-queue'] as TaskQueue
+  }
+  component "Temporal Web UI (:8088)" as TemporalUI
+  
+  component "Temporal Worker Daemon" as TemporalWorker {
+    [ActivityPlanWorkflow] as WorkflowImpl
+    [SendActivityReminder Activity] as ReminderActivity
+    [SyncScheduleStatus Activity] as SyncActivity
+  }
+}
+
+package "Notification Integration" {
+  [Notification Provider / Mock Adapter] as NotificationService
+}
+
+' Interactions
+WebAdmin --> LaravelAPI : HTTP/JSON (REST)
+MobileApp --> LaravelAPI : HTTP/JSON (REST)
+
+LaravelAPI --> Auth
+LaravelAPI --> ExamService
+LaravelAPI --> ActivityService
+
+ExamService --> BusinessDB : Write exam & session data
+ActivityService --> BusinessDB : Create/Update plan & schedules
+ActivityService --> OutboxProducer : Enqueue Domain Event
+
+OutboxProducer --> OutboxDB : Write within same DB Transaction
+
+OutboxDispatcher --> OutboxDB : Poll/Read pending events
+OutboxDispatcher --> TemporalServer : gRPC StartWorkflow / Signal / Cancel
+OutboxDispatcher --> OutboxDB : Mark event published
+
+TemporalServer --> TaskQueue : Queue tasks
+TaskQueue --> TemporalWorker : Poll & Execute Workflows/Activities
+
+TemporalWorker --> TempEngine : Durable Timer & State Machine
+TemporalWorker --> ReminderActivity : Execute reminder step
+ReminderActivity --> NotificationService : Send push/mock reminder
+ReminderActivity --> BusinessDB : Write notification_logs
+TemporalWorker --> SyncActivity : Update schedule status
+
+MobileApp --> LaravelAPI : Submit Patient Report
+LaravelAPI --> BusinessDB : Save patient_activity_reports
+LaravelAPI --> TemporalServer : Signal 'patient-reported-signal'
+TemporalServer --> WorkflowImpl : Deliver Signal into workflow
+@enduml
+

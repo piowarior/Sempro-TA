@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+title Activity Diagram — Pencatatan Perkembangan Pasien
+
+start
+
+:Petugas Membuka Menu Data Pasien;
+:Pilih Pasien & Klik 'Tambah Sesi Pemeriksaan';
+
+:Petugas Mengisi Formulir 50 Indikator Toxin Assessment;
+note right
+  Petugas mencentang indikator
+  yang dialami pasien saat evaluasi
+end note
+
+:Sistem Menghitung Total Indikator Terindikasi Secara Otomatis;
+
+if (Total Terindikasi <= 5?) then (Ya)
+  :Klasifikasikan sebagai Level 1;
+elseif (Total Terindikasi <= 15?) then (Ya)
+  :Klasifikasikan sebagai Level 2;
+else (Lebih dari 15)
+  :Klasifikasikan sebagai Level 3;
+endif
+
+:Petugas Mengisi Parameter Body & Ketosis (Opsional);
+note right
+  Nilai yang tidak diperiksa
+  dibiarkan kosong (NULL)
+end note
+
+:Petugas Menekan Tombol Simpan;
+
+partition "Database Transaction" {
+  :Simpan Data Sesi ke patient_progress_sessions;
+  :Simpan Hasil Klasifikasi ke toxin_assessment_results;
+  :Simpan Jawaban 50 Indikator ke toxin_assessment_answers;
+  :Simpan Data Body ke body_measurements;
+  :Simpan Data Darah ke blood_measurements;
+  :Terbitkan Event 'PatientProgressRecorded' ke outbox_events;
+}
+
+:Tampilkan Notifikasi Berhasil & Perbarui Grafik Perkembangan;
+
+stop
+@enduml
