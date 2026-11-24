@@ -1,7 +1,0 @@
-.venv/
-__pycache__/
-*.py[cod]
-hasil_pengolahan/
-.DS_Store
-sales_processed.csv
-stock_processed.csv
