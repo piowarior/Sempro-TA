@@ -1,0 +1,71 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Composer & PHP
+vendor/
+composer.phar
+.phpunit.result.cache
+
+# Node & Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Laravel framework
+storage/*.key
+storage/logs/*
+!storage/logs/.gitkeep
+storage/framework/cache/*
+!storage/framework/cache/.gitkeep
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+storage/framework/views/*
+!storage/framework/views/.gitkeep
+storage/app/*
+!storage/app/.gitkeep
+public/storage
+public/hot
+public/build
+
+# Flutter & Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.mode1v3
+*.mode2v3
+*.normal
+*.perspectivev3
+*.pbxuser
+*.moved-aside
+*.ipa
+*.app
+*.dSYM.zip
+*.dSYM
+
+# Go binaries
+dsh-penelitian/temporal-worker/worker
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Docker volumes / local data
+mysql_data/
+*.sqlite
+*.sqlite-journal
+
+# IDEs & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

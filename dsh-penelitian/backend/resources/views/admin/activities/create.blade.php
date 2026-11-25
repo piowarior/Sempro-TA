@@ -21,7 +21,7 @@
             <!-- Pilih Pasien MHLS -->
             <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Pilih Pasien MHLS *</label>
-                <select name="patient_id" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                <select name="patient_id" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                     <option value="">-- Pilih Pasien Terdaftar --</option>
                     @foreach($patients as $p)
                         <option value="{{ $p->id }}" {{ (old('patient_id') == $p->id || request('patient_id') == $p->id) ? 'selected' : '' }}>
@@ -38,7 +38,7 @@
                     <span class="text-[10px] text-slate-400">Pilih template atau ketik mandiri:</span>
                 </div>
                 <input type="text" name="name" id="activityNameInput" value="{{ old('name', 'Tidur sebelum pukul 22.00') }}" required
-                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                 
                 <!-- Quick Template Buttons -->
                 <div class="flex flex-wrap gap-1.5 mt-2">
@@ -65,7 +65,7 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Deskripsi Instruksi & Arahan *</label>
                 <textarea name="description" id="activityDescInput" rows="3" required
-                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">{{ old('description', 'Pasien diminta menjaga waktu tidur sebelum pukul 22.00 untuk optimalisasi pemulihan.') }}</textarea>
+                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">{{ old('description', 'Pasien diminta menjaga waktu tidur sebelum pukul 22.00 untuk optimalisasi pemulihan.') }}</textarea>
             </div>
 
             <!-- Periode Tanggal -->
@@ -73,12 +73,12 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal Mulai *</label>
                     <input type="date" name="start_date" id="startDateInput" value="{{ old('start_date', date('Y-m-d')) }}" required
-                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal Berakhir *</label>
                     <input type="date" name="end_date" id="endDateInput" value="{{ old('end_date', date('Y-m-d', strtotime('+2 days'))) }}" required
-                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                     <span class="text-[10px] text-slate-400">Contoh: 3 hari (10 - 12 Nov 2026)</span>
                 </div>
             </div>
@@ -88,7 +88,7 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Frekuensi Pelaksanaan *</label>
                     <select name="frequency_type" id="freqSelect" onchange="toggleCustomDays()" required
-                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                         <option value="daily" {{ old('frequency_type') === 'daily' ? 'selected' : '' }}>Setiap Hari (Daily)</option>
                         <option value="custom_days" {{ old('frequency_type') === 'custom_days' ? 'selected' : '' }}>Hari Tertentu (Custom Days)</option>
                         <option value="weekly" {{ old('frequency_type') === 'weekly' ? 'selected' : '' }}>Mingguan (Weekly)</option>
@@ -98,7 +98,7 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Waktu Pengingat (HH:MM) *</label>
                     <input type="time" name="reminder_time" id="reminderTimeInput" value="{{ old('reminder_time', '21:00') }}" required
-                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
                     <span class="text-[10px] text-slate-400">Sistem akan memicu Durable Timer Temporal pada jam ini</span>
                 </div>
             </div>
@@ -120,14 +120,14 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Catatan Tambahan untuk Pasien</label>
                 <input type="text" name="additional_notes" placeholder="Catatan opsional..."
-                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none">
+                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#20596c] focus:bg-white focus:outline-none">
             </div>
 
             <div class="pt-4 flex items-center justify-end gap-3">
                 <a href="{{ route('admin.activities') }}" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition">
                     Batal
                 </a>
-                <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md transition flex items-center gap-2">
+                <button type="submit" class="px-6 py-2.5 dsh-btn-primary text-white rounded-xl text-xs font-semibold shadow-md transition flex items-center gap-2">
                     <i class="fa-solid fa-play"></i>
                     <span>Buat Instruksi & Picu Temporal Workflow</span>
                 </button>

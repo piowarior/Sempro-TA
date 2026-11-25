@@ -125,4 +125,46 @@ class ApiService {
     }
     return {'success': false, 'message': data['message'] ?? 'Gagal mengirim laporan'};
   }
+
+  static Future<Map<String, dynamic>> getVisits() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/patient/visits'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    throw Exception('Gagal memuat jadwal kunjungan');
+  }
+
+  static Future<Map<String, dynamic>> requestBooking({
+    required int meetingNumber,
+    required String visitDate,
+    required String timeSlot,
+    String? patientNotes,
+  }) async {
+    final token = await getToken();
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/patient/visits/request-booking'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'meeting_number': meetingNumber,
+        'visit_date': visitDate,
+        'time_slot': timeSlot,
+        'patient_notes': patientNotes ?? '',
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return {'success': true, 'data': data};
+    }
+    return {'success': false, 'message': data['message'] ?? 'Gagal mengajukan booking'};
+  }
 }

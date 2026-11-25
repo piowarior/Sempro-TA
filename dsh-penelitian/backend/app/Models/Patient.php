@@ -38,6 +38,11 @@ class Patient extends Model
         return $this->hasMany(PatientProgressSession::class)->orderBy('session_date', 'desc');
     }
 
+    public function visits()
+    {
+        return $this->hasMany(Visit::class)->orderBy('visit_date', 'desc');
+    }
+
     public function activityPlans()
     {
         return $this->hasMany(ActivityPlan::class)->orderBy('start_date', 'desc');

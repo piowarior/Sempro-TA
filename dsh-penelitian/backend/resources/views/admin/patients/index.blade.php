@@ -9,7 +9,7 @@
             <h2 class="text-xl font-bold text-slate-800">Data Pasien</h2>
             <p class="text-xs text-slate-500 mt-1">Kelola data pasien Umum dan MHLS (Mind Heart Life Style)</p>
         </div>
-        <a href="{{ route('admin.patients.create') }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow transition">
+        <a href="{{ route('admin.patients.create') }}" class="inline-flex items-center px-4 py-2 text-white rounded-xl text-xs font-semibold shadow transition dsh-btn-primary">
             <i class="fa-solid fa-user-plus mr-2"></i> Tambah Pasien Baru
         </a>
     </div>
@@ -22,7 +22,7 @@
                     <i class="fa-solid fa-search"></i>
                 </span>
                 <input type="text" name="search" value="{{ request('search') }}"
-                    class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2" style="--tw-ring-color:#20596c;"
                     placeholder="Cari nama pasien atau nomor rekam medis...">
             </div>
             <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition">
@@ -64,13 +64,13 @@
                             <td class="py-3.5 px-4 text-slate-600">{{ $patient->gender === 'L' ? 'Laki-laki' : 'Perempuan' }}</td>
                             <td class="py-3.5 px-4 text-slate-600 font-mono">{{ $patient->phone_number ?: '-' }}</td>
                             <td class="py-3.5 px-4">
-                                <span class="font-bold text-emerald-600">{{ $patient->sessions->count() }} Sesi</span>
+                                <span class="font-bold" style="color:#20596c;">{{ $patient->sessions->count() }} Sesi</span>
                             </td>
                             <td class="py-3.5 px-4 text-center space-x-1">
                                 <a href="{{ route('admin.patients.detail', $patient->id) }}" class="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition" title="Lihat Rekam Jejak">
                                     <i class="fa-solid fa-folder-open mr-1.5"></i> Detail
                                 </a>
-                                <a href="{{ route('admin.examinations.create', $patient->id) }}" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg transition" title="Tambah Pemeriksaan">
+                                <a href="{{ route('admin.examinations.create', $patient->id) }}" class="inline-flex items-center px-3 py-1.5 font-semibold rounded-lg transition text-xs" style="background:#f0f7f9;color:#20596c;" onmouseover="this.style.background='#dceef2'" onmouseout="this.style.background='#f0f7f9'" title="Tambah Pemeriksaan">
                                     <i class="fa-solid fa-plus-circle mr-1.5"></i> Sesi Baru
                                 </a>
                             </td>

@@ -3,6 +3,7 @@ import 'dashboard_screen.dart';
 import 'examinations_screen.dart';
 import 'activities_screen.dart';
 import 'progress_charts_screen.dart';
+import 'visits_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -16,6 +17,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
+    VisitsScreen(),
     ExaminationsScreen(),
     ActivitiesScreen(),
     ProgressChartsScreen(),
@@ -36,6 +38,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF059669)),
             label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF059669)),
+            label: 'Jadwal',
           ),
           NavigationDestination(
             icon: Icon(Icons.description_outlined),

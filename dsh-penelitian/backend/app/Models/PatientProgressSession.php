@@ -11,21 +11,30 @@ class PatientProgressSession extends Model
 
     protected $fillable = [
         'patient_id',
+        'visit_id',
         'session_number',
+        'meeting_number',
         'session_date',
         'staff_notes',
         'examination_summary',
+        'activity_evaluation_notes',
         'recorded_at',
     ];
 
     protected $casts = [
         'session_date' => 'date',
         'recorded_at' => 'datetime',
+        'meeting_number' => 'integer',
     ];
 
     public function patient()
     {
         return $this->belongsTo(Patient::class);
+    }
+
+    public function visit()
+    {
+        return $this->belongsTo(Visit::class);
     }
 
     public function toxinAssessment()

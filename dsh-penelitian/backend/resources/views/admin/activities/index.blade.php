@@ -9,7 +9,7 @@
             <h2 class="text-xl font-bold text-slate-800">Aktivitas Mandiri Pasien (MHLS)</h2>
             <p class="text-xs text-slate-500 mt-1">Kelola instruksi gaya hidup, pengingat, dan orkestrasi Temporal Workflow</p>
         </div>
-        <a href="{{ route('admin.activities.create') }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow transition">
+        <a href="{{ route('admin.activities.create') }}" class="inline-flex items-center px-4 py-2 text-white rounded-xl text-xs font-semibold shadow transition dsh-btn-primary">
             <i class="fa-solid fa-plus-circle mr-2"></i> Buat Instruksi Baru
         </a>
     </div>
@@ -33,7 +33,7 @@
                     @forelse($plans as $plan)
                         <tr class="hover:bg-slate-50/70 transition">
                             <td class="py-3.5 px-4">
-                                <a href="{{ route('admin.patients.detail', $plan->patient->id) }}" class="font-bold text-slate-900 hover:text-emerald-600 transition">
+                                <a href="{{ route('admin.patients.detail', $plan->patient->id) }}" class="font-bold text-slate-900 transition" style="color:#1a3d4a;" onmouseover="this.style.color='#20596c'" onmouseout="this.style.color='#1a3d4a'">
                                     {{ $plan->patient->name }}
                                 </a>
                                 <p class="text-slate-400 font-mono text-[10px]">{{ $plan->patient->patient_number }}</p>

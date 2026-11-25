@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\PatientController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Patient\ActivityController as PatientActivityController;
 use App\Http\Controllers\Patient\DashboardController as PatientDashboardController;
+use App\Http\Controllers\Patient\VisitController as PatientVisitController;
 use App\Models\ActivityPlan;
 use App\Models\ActivitySchedule;
 use App\Models\NotificationLog;
@@ -52,6 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/activities', [PatientActivityController::class, 'index']);
         Route::get('/activities/{id}', [PatientActivityController::class, 'show']);
         Route::post('/activities/{planId}/report', [PatientActivityController::class, 'report']);
+        Route::get('/visits', [PatientVisitController::class, 'index']);
+        Route::post('/visits/request-booking', [PatientVisitController::class, 'storeBooking']);
     });
 });
 

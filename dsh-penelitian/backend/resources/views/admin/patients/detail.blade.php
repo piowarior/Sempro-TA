@@ -7,7 +7,7 @@
     <!-- Patient Header Card -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div class="flex items-center space-x-4">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+            <div class="w-16 h-16 rounded-2xl text-white flex items-center justify-center text-2xl font-bold shadow-md" style="background:linear-gradient(135deg,#20596c,#1c8fa0);">
                 {{ strtoupper(substr($patient->name, 0, 1)) }}
             </div>
             <div>
@@ -16,7 +16,7 @@
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase {{ $patient->patient_type === 'mhls' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-700' }}">
                         {{ $patient->patient_type }}
                     </span>
-                    <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold border" style="background:#f0f7f9;color:#20596c;border-color:#bedde5;">
                         {{ $patient->status }}
                     </span>
                 </div>
@@ -30,7 +30,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('admin.examinations.create', $patient->id) }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow transition">
+            <a href="{{ route('admin.examinations.create', $patient->id) }}" class="inline-flex items-center px-4 py-2 text-white rounded-xl text-xs font-semibold shadow transition dsh-btn-primary">
                 <i class="fa-solid fa-notes-medical mr-2"></i> Tambah Pemeriksaan
             </a>
             <a href="{{ route('admin.examinations.charts', $patient->id) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow transition">

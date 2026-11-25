@@ -1,130 +1,116 @@
-# PROMPT ANTIGRAVITY — IMPLEMENTASI SISTEM MONITORING PERKEMBANGAN PASIEN BERBASIS EVENT-DRIVEN ARCHITECTURE DAN TEMPORAL
+# PROMPT ANTIGRAVITY — PENGEMBANGAN SISTEM MONITORING PERKEMBANGAN PASIEN BERBASIS EDA DAN TEMPORAL
 
-## 1. Identitas Proyek
+## 1. Identitas dan Tujuan Sistem
 
-Buat sebuah sistem informasi dengan judul penelitian:
+Kembangkan sebuah Sistem Monitoring Perkembangan Pasien untuk Klinik Darus Syifa Holistik (DSH) dengan judul penelitian:
 
-**IMPLEMENTASI EVENT-DRIVEN ARCHITECTURE DENGAN DURABLE WORKFLOW ORCHESTRATION MENGGUNAKAN TEMPORAL PADA SISTEM MONITORING PERKEMBANGAN PASIEN**
+**Implementasi Event-Driven Architecture dengan Durable Workflow Orchestration Menggunakan Temporal pada Sistem Monitoring Perkembangan Pasien**
 
-Sistem ini ditujukan untuk mendukung proses pencatatan perkembangan pasien dan monitoring aktivitas mandiri pasien pada Klinik Darus Syifa Holistik (DSH).
+Sistem dikembangkan dalam dua aplikasi yang saling terintegrasi:
 
-Sistem dikembangkan sebagai aplikasi yang terdiri dari:
+1. **Web Admin Klinik:** digunakan pihak klinik untuk mengelola pendaftaran pasien, kunjungan, pemeriksaan, monitoring perkembangan, dan aktivitas mandiri.
+2. **Mobile App Pasien:** digunakan pasien untuk melihat jadwal, hasil pemeriksaan, perkembangan kesehatan, instruksi aktivitas mandiri, pengingat, dan mengirimkan laporan aktivitas.
 
-- Web Admin: digunakan oleh petugas klinik untuk mengelola data pasien, mencatat hasil pemeriksaan, memberikan instruksi aktivitas mandiri, dan memantau perkembangan pasien.
-- Mobile App Pasien: digunakan pasien untuk melihat perkembangan, melihat instruksi aktivitas mandiri, menerima pengingat, dan melaporkan pelaksanaan aktivitas.
+Tujuan sistem bukan sekadar menggantikan Excel dengan aplikasi pencatatan. Sistem harus membantu mengelola rangkaian proses monitoring pasien yang memiliki beberapa tahapan dan berlangsung dalam jangka waktu tertentu.
 
-Fokus utama pengembangan bukan sekadar membuat aplikasi CRUD, melainkan mengimplementasikan arsitektur berbasis event dan workflow yang mampu mengelola proses jangka panjang, penjadwalan, waktu tunggu, pelaporan, perubahan instruksi, serta pemulihan proses ketika terjadi gangguan.
+Fokus implementasi penelitian adalah:
+- Event-Driven Architecture (EDA) untuk komunikasi antarbagian sistem melalui event.
+- Durable Workflow Orchestration menggunakan Temporal untuk mengelola proses jangka panjang, termasuk timer, waktu tunggu, signal, retry, dan pemulihan workflow setelah gangguan.
 
----
+## 2. Latar Belakang dan Permasalahan
 
-# 2. Latar Belakang Permasalahan
+Pengelolaan monitoring perkembangan pasien di Klinik DSH saat ini masih dilakukan secara manual menggunakan Excel. Prosesnya melibatkan beberapa tahapan, mulai dari pendaftaran pasien, penentuan jadwal kunjungan, pemeriksaan, pencatatan hasil, hingga pemberian instruksi aktivitas mandiri.
 
-Sistem dengan alur kerja yang panjang melibatkan berbagai tahapan dan aktivitas yang tidak selalu berjalan sesuai rencana. Perubahan proses, kesalahan pengguna, maupun gangguan teknis dapat menyebabkan alur kerja terhenti, tertunda, atau tidak terlaksana sesuai urutan.
+Terdapat dua kategori pasien:
 
-Dalam konteks monitoring perkembangan pasien, petugas perlu mencatat perkembangan pasien secara berkala dan memberikan instruksi aktivitas mandiri yang harus dilakukan pasien dalam periode tertentu.
+1. **Pasien Umum:** menjalani pemeriksaan sesuai kebutuhan kunjungan. Pasien dapat menyelesaikan proses pelayanan setelah kunjungan tanpa harus mengikuti program monitoring berkala.
+2. **Pasien MHLS (Moslem Healthy Lifestyle):** mengikuti program pendampingan selama tiga bulan dengan total 12 pertemuan. Selain pemeriksaan dan terapi di klinik, pasien memperoleh instruksi aktivitas mandiri yang dilaksanakan di luar klinik selama periode tertentu.
 
-Aktivitas tersebut dapat memiliki jadwal, frekuensi, dan durasi berbeda-beda. Pasien juga dapat terlambat melaporkan aktivitas, melewatkan jadwal, atau memperoleh perubahan instruksi dari petugas.
+Pengelolaan tersebut memiliki tantangan karena data pemeriksaan tersimpan dalam pencatatan yang perlu dikelola kembali pada setiap pertemuan. Khusus pasien MHLS, proses monitoring juga melibatkan instruksi aktivitas mandiri dan laporan pelaksanaannya di antara jadwal pertemuan.
 
-Apabila seluruh proses tersebut hanya dikelola menggunakan proses request-response biasa, pengembang perlu membuat sendiri mekanisme penjadwalan, pengingat, waktu tunggu, pengelolaan status, pengulangan proses, dan pemulihan ketika aplikasi mengalami gangguan.
+Pada proses yang berjalan, evaluasi aktivitas mandiri dilakukan ketika pasien datang kembali ke klinik melalui kuis mengenai aktivitas pada periode sebelumnya. Sistem yang diusulkan perlu mendukung pelaporan aktivitas secara berkala agar pihak klinik dapat memantau pelaksanaannya sebelum pertemuan berikutnya.
 
-Oleh karena itu, sistem perlu menggunakan pendekatan arsitektur dan teknologi yang dapat menangani komunikasi antarproses serta pengelolaan workflow jangka panjang.
+Dengan demikian, sistem perlu mengintegrasikan data pemeriksaan, riwayat perkembangan, jadwal kunjungan, instruksi aktivitas, dan laporan pasien. Sistem juga memerlukan pengelolaan workflow yang mampu menjalankan proses berdasarkan periode dan jadwal yang telah ditentukan.
 
-# 3. Solusi Penelitian
+## 3. Modul Utama Sistem
 
-Untuk mengurangi ketergantungan antarproses, alur kerja dapat menerapkan **Event-Driven Architecture (EDA)** dengan memisahkan aktivitas ke dalam proses-proses yang saling berkomunikasi melalui event.
+Sistem harus memiliki lima modul utama berikut. Jangan mengurangi atau menggabungkan modul-modul ini tanpa alasan yang jelas.
 
-Namun, karena rangkaian proses tersebut dapat berlangsung lama dan membutuhkan waktu tunggu, diperlukan **Durable Workflow Orchestration menggunakan Temporal** agar setiap tahapan tetap tercatat dan dapat dilanjutkan ketika terjadi gangguan.
+### Modul 1 — Pendaftaran Pasien
 
-Pembagian tanggung jawab:
+Digunakan pihak klinik untuk mengelola data pasien yang mendaftar.
 
-### Event-Driven Architecture
+Fitur:
+- Menambahkan data pasien.
+- Mengubah data pasien.
+- Melihat detail pasien.
+- Menentukan kategori pasien: Umum atau MHLS.
+- Mengelola status pasien.
+- Membuat akun pasien untuk akses aplikasi mobile.
+- Mengelola riwayat data pasien.
 
-EDA digunakan untuk menyampaikan informasi bahwa suatu kejadian telah terjadi.
-
-Contohnya:
-
-- Instruksi aktivitas mandiri berhasil dibuat.
-- Hasil pemeriksaan pasien berhasil disimpan.
-- Pasien mengirimkan laporan aktivitas.
-- Instruksi aktivitas diperbarui.
-- Instruksi aktivitas dibatalkan.
-
-Komponen lain dapat menerima event tersebut dan menjalankan proses yang relevan tanpa harus memiliki ketergantungan langsung dengan proses pembuat event.
-
-### Temporal
-
-Temporal digunakan untuk mengelola jalannya workflow yang membutuhkan waktu dan beberapa tahapan.
-
-Contohnya:
-
-- Menunggu waktu pengingat aktivitas pasien.
-- Mengirimkan pengingat sesuai jadwal.
-- Menunggu laporan aktivitas dari pasien.
-- Menangani laporan yang terlambat atau tidak masuk.
-- Melanjutkan aktivitas pada jadwal berikutnya.
-- Menangani perubahan dan pembatalan instruksi.
-- Melanjutkan workflow setelah Worker atau aplikasi mengalami gangguan.
-
-**Prinsip utama: EDA mengatur komunikasi antarproses melalui event, sedangkan Temporal mengatur kelangsungan proses workflow dari awal sampai selesai.**
-
----
-
-# 4. Ruang Lingkup Pengembangan Tahap Pertama
-
-Untuk saat ini, jangan mengembangkan seluruh sistem klinik.
-
-Fokus hanya pada tiga modul berikut.
-
-## Modul A — Pencatatan Perkembangan Pasien
-
-Modul ini digunakan petugas klinik untuk mencatat perkembangan pasien berdasarkan sesi pemeriksaan.
-
-### A.1 Pengelolaan Data Pasien
-
-Data pasien minimal meliputi:
-
+Data pasien minimal:
 - ID pasien.
 - Nomor identitas pasien internal.
-- Nama pasien.
+- Nama lengkap.
 - Tanggal lahir.
 - Jenis kelamin.
 - Nomor telepon.
 - Alamat.
-- Jenis pasien: Umum atau MHLS.
+- Kategori pasien.
 - Status pasien.
 
-Akun pasien dibuat oleh petugas. Tidak perlu fitur pendaftaran mandiri oleh pasien.
+Ketentuan:
+- Pendaftaran awal dilakukan melalui pihak klinik.
+- Pasien tidak membuat akun sendiri.
+- Akun mobile diberikan oleh pihak klinik.
+- Pasien umum tidak harus menggunakan aplikasi mobile apabila tidak mengikuti proses monitoring MHLS.
 
-### A.2 Pencatatan Sesi Pemeriksaan
+### Modul 2 — Kunjungan/Booking
 
-Petugas dapat membuat sesi pemeriksaan baru untuk pasien.
+Digunakan untuk mengelola jadwal kunjungan pasien ke klinik.
 
-Satu pasien dapat memiliki banyak sesi pemeriksaan.
+Fitur:
+- Membuat jadwal kunjungan pertama.
+- Melihat jadwal kunjungan.
+- Mengelola riwayat kunjungan.
+- Pasien MHLS mengajukan jadwal pertemuan berikutnya melalui aplikasi.
+- Pihak klinik mengonfirmasi pengajuan jadwal.
+- Sistem menyimpan jadwal yang telah dikonfirmasi.
+- Sistem mengirimkan informasi jadwal kepada pasien.
 
-Setiap sesi pemeriksaan mempunyai:
+Alur:
+1. Pasien mengajukan pendaftaran.
+2. Pihak klinik mencatat data dan menentukan kategori pasien.
+3. Pihak klinik menentukan jadwal kunjungan pertama.
+4. Sistem menyimpan dan mengirimkan informasi jadwal.
+5. Pasien datang ke klinik sesuai jadwal.
+6. Setelah pasien MHLS menggunakan aplikasi, pengajuan jadwal pertemuan berikutnya dapat dilakukan melalui aplikasi.
+7. Pihak klinik mengonfirmasi jadwal yang diajukan.
 
-- ID sesi pemeriksaan.
-- ID pasien.
-- Nomor sesi pemeriksaan.
-- Tanggal pemeriksaan.
-- Catatan petugas.
-- Hasil pemeriksaan.
-- Waktu pencatatan.
+Ketentuan:
+- Jadwal kunjungan pertama ditentukan oleh pihak klinik.
+- Pengajuan jadwal berikutnya melalui aplikasi berlaku untuk pasien MHLS.
+- Sistem harus membedakan jadwal yang diajukan dan jadwal yang telah dikonfirmasi.
+- Sistem mencatat nomor pertemuan MHLS hingga 12 kali.
 
-Nomor sesi pemeriksaan tidak harus sama dengan nomor kunjungan pasien.
+### Modul 3 — Pemeriksaan
 
-### A.3 Pencatatan Pemeriksaan Toxin Assessment
+Digunakan pihak klinik untuk mencatat hasil pemeriksaan pasien pada setiap kunjungan.
 
-Sediakan formulir pemeriksaan yang memiliki 50 indikator.
+Satu pasien dapat memiliki banyak riwayat pemeriksaan. Setiap pemeriksaan harus terhubung dengan pasien dan kunjungan yang bersangkutan.
 
-Setiap indikator dapat memiliki status:
+Data pemeriksaan terdiri atas enam kelompok berikut.
 
+#### 3.1 Gejala
+
+Berisi 50 indikator pemeriksaan gejala atau indikator toksin.
+
+Setiap indikator memiliki pilihan:
 - Terindikasi.
 - Tidak terindikasi.
 
-Sistem menghitung jumlah indikator yang terindikasi secara otomatis.
-
-Gunakan klasifikasi internal DSH berikut:
+Sistem menghitung jumlah indikator yang terindikasi dan menentukan level berdasarkan klasifikasi internal DSH:
 
 | Jumlah indikator terindikasi | Level |
 |---|---|
@@ -132,949 +118,627 @@ Gunakan klasifikasi internal DSH berikut:
 | 6–15 | Level 2 |
 | 16 atau lebih | Level 3 |
 
-Simpan:
+Simpan seluruh jawaban, jumlah indikator terindikasi, level hasil, tanggal pemeriksaan, dan sesi pemeriksaan.
 
-- Jawaban seluruh indikator.
-- Jumlah indikator terindikasi.
-- Level hasil klasifikasi.
-- Tanggal pemeriksaan.
-- Sesi pemeriksaan.
+Klasifikasi tersebut merupakan ketentuan pencatatan internal DSH, bukan diagnosis medis otomatis.
 
-Catatan: klasifikasi ini merupakan klasifikasi internal yang digunakan untuk pencatatan dan monitoring sesuai ketentuan klinik, bukan diagnosis medis otomatis.
+#### 3.2 Darah
 
-### A.4 Pencatatan Pemeriksaan Body dan Ketosis
+Berisi hasil pemeriksaan darah atau parameter terkait yang dicatat oleh pihak klinik.
 
-Sediakan formulir pemeriksaan dengan field yang bersifat opsional karena tidak semua parameter diperiksa pada setiap sesi.
-
-Parameter tubuh:
-
-- Berat badan.
-- BMI.
-- Lingkar pinggang.
-- Body fat.
-- Water.
-- Muscle mass.
-- Physical rating.
-- Cell age.
-- Bone mass.
-- Visceral fat.
-- Body temperature.
-
-Parameter darah dan ketosis:
-
-- Tekanan darah.
+Parameter yang perlu disediakan sesuai data pemeriksaan DSH:
+- Tekanan darah sistolik.
+- Tekanan darah diastolik.
 - Heart rate.
 - Hemoglobin.
-- Glukosa.
 - Kolesterol.
 - Asam urat.
-- Ketone.
 
-Semua hasil pemeriksaan disimpan berdasarkan pasien dan sesi pemeriksaan.
+Setiap parameter harus memiliki satuan yang sesuai. Nilai pemeriksaan harus disimpan berdasarkan sesi pemeriksaan dan tanggalnya.
 
-Pastikan nilai yang tidak diperiksa dapat dibiarkan kosong, bukan otomatis diisi nol.
+#### 3.3 Tubuh
 
-### A.5 Riwayat Perkembangan Pasien
+Berisi hasil pengukuran kondisi tubuh pasien:
 
-Petugas dapat melihat:
+- Berat badan.
+- IMT/BMI.
+- Lingkar perut.
+- Lemak tubuh.
+- Kadar air.
+- Massa otot.
+- Rating fisik.
+- Usia sel.
+- Massa tulang.
+- Lemak perut/visceral fat.
+- Suhu tubuh.
 
-- Riwayat seluruh sesi pemeriksaan.
-- Riwayat hasil Toxin Assessment.
-- Riwayat pemeriksaan Body dan Ketosis.
-- Perbandingan nilai pemeriksaan dari waktu ke waktu.
-- Grafik perubahan parameter tubuh dan darah.
-- Catatan perkembangan pasien.
+Setiap parameter disimpan sebagai data terpisah agar dapat ditampilkan dalam riwayat dan grafik perkembangan.
 
-Gunakan grafik yang sesuai untuk memperlihatkan perubahan hasil pemeriksaan berdasarkan tanggal.
+#### 3.4 Metabolik
 
-Jangan membuat diagnosis atau kesimpulan medis otomatis.
+Sediakan bagian khusus untuk data pemeriksaan metabolik sesuai formulir dan dokumen pemeriksaan DSH.
 
----
+Jangan mengarang nama parameter, satuan, nilai normal, kategori, maupun rumus yang belum tersedia dalam dokumen klinik. Jika informasi parameter belum lengkap, tandai sebagai kebutuhan konfirmasi dan jangan mengisi nilai asumsi.
 
-# 5. Modul B — Monitoring Perkembangan Pasien
+#### 3.5 Glukosa-Keton
 
-Modul ini digunakan pasien melalui aplikasi mobile.
+Berisi hasil pemeriksaan glukosa dan keton serta nilai GKI.
 
-Pasien hanya dapat melihat data miliknya sendiri.
+Data:
+- Glukosa darah dalam mg/dL.
+- Keton dalam mmol/L.
+- Nilai GKI.
 
-### B.1 Dashboard Pasien
+Gunakan rumus:
 
-Dashboard menampilkan:
+GKI = (Glukosa (mg/dL) / 18) / Keton (mmol/L)
 
-- Identitas pasien.
-- Jenis pasien.
-- Ringkasan perkembangan terakhir.
-- Tanggal pemeriksaan terakhir.
-- Ringkasan hasil pemeriksaan.
-- Grafik perkembangan.
-- Aktivitas mandiri yang sedang berjalan.
-- Aktivitas yang perlu dilaporkan.
+Nilai GKI dihitung dari hasil glukosa dan keton yang tersedia. Simpan nilai pemeriksaan aslinya dan hasil perhitungan secara terpisah.
 
-### B.2 Riwayat Pemeriksaan
+Jangan menganggap GKI sebagai hasil pemeriksaan mandiri yang tidak membutuhkan data glukosa dan keton.
 
-Pasien dapat melihat riwayat pemeriksaannya sendiri, meliputi:
+#### 3.6 Aktivitas Mandiri
 
-- Tanggal pemeriksaan.
-- Hasil Toxin Assessment.
-- Hasil Body dan Ketosis.
-- Catatan perkembangan yang diizinkan untuk ditampilkan.
-- Perubahan nilai pemeriksaan dari waktu ke waktu.
+Berisi data evaluasi aktivitas mandiri pasien yang diperoleh dalam proses pemeriksaan atau evaluasi pertemuan.
 
-Pasien tidak boleh mengubah hasil pemeriksaan yang dicatat petugas.
+Untuk pasien MHLS, data evaluasi aktivitas dari periode sebelumnya dapat dicatat berdasarkan kuis yang dilakukan ketika pasien datang kembali ke klinik.
 
-### B.3 Visualisasi Perkembangan
+Pisahkan data evaluasi tersebut dari laporan aktivitas berkala yang dikirimkan pasien melalui aplikasi mobile.
 
-Sediakan grafik berdasarkan parameter yang tersedia.
+### Ketentuan umum pemeriksaan
 
-Contoh:
+- Tidak semua parameter wajib diperiksa pada setiap kunjungan.
+- Nilai yang tidak diperiksa harus disimpan sebagai kosong/null, bukan nol.
+- Riwayat pemeriksaan sebelumnya tidak boleh tertimpa ketika pemeriksaan baru dibuat.
+- Hasil pemeriksaan harus dapat ditampilkan berdasarkan tanggal dan sesi pemeriksaan.
+- Sistem tidak membuat diagnosis atau rekomendasi medis otomatis.
 
-- Grafik berat badan.
-- Grafik BMI.
-- Grafik lingkar pinggang.
-- Grafik glukosa.
-- Grafik kolesterol.
-- Grafik asam urat.
-- Grafik ketone.
+## Modul 4 — Monitoring Perkembangan Pasien
 
-Apabila data suatu parameter tidak tersedia pada tanggal tertentu, jangan membuat nilai palsu atau menganggapnya nol.
+Modul ini mengintegrasikan hasil pemeriksaan dari setiap kunjungan untuk memperlihatkan perkembangan pasien dari waktu ke waktu.
 
----
+Fitur web admin:
+- Melihat ringkasan data pasien.
+- Melihat riwayat seluruh pemeriksaan.
+- Melihat perkembangan setiap kelompok pemeriksaan.
+- Membandingkan hasil pemeriksaan antarperiode.
+- Menampilkan grafik perubahan parameter.
+- Melihat catatan perkembangan pasien.
 
-# 6. Modul C — Pengelolaan Aktivitas Mandiri Pasien MHLS
+Fitur mobile pasien:
+- Melihat ringkasan perkembangan miliknya.
+- Melihat tanggal pemeriksaan terakhir.
+- Melihat hasil pemeriksaan yang diizinkan.
+- Melihat riwayat pemeriksaan.
+- Melihat grafik perkembangan berdasarkan parameter.
+- Melihat ringkasan aktivitas mandiri yang sedang berjalan.
 
-Ini merupakan modul utama untuk penerapan EDA dan Temporal.
+Ketentuan:
+- Pasien hanya dapat melihat data miliknya sendiri.
+- Pasien tidak dapat mengubah hasil pemeriksaan yang dicatat pihak klinik.
+- Data yang tidak tersedia pada tanggal tertentu tidak boleh dianggap bernilai nol.
+- Grafik hanya menampilkan parameter yang memiliki data pemeriksaan.
+- Jangan membuat interpretasi atau diagnosis medis otomatis.
 
-Pasien MHLS dapat memperoleh instruksi aktivitas mandiri dari petugas klinik setelah sesi konsultasi atau pemeriksaan.
+## Modul 5 — Aktivitas Mandiri
 
-Aktivitas mandiri dapat berupa:
+Modul ini digunakan untuk mengelola instruksi aktivitas mandiri pasien MHLS dan menjadi fokus utama penerapan Durable Workflow Orchestration menggunakan Temporal.
 
-- Tidur sebelum pukul 22.00.
-- Mengatur pola makan dan mengonsumsi real food.
-- Membatasi makanan olahan.
-- Melakukan puasa sunnah sesuai arahan terapis.
+Pihak klinik memberikan instruksi aktivitas mandiri setelah pemeriksaan atau terapi. Pasien melaksanakan instruksi tersebut di luar klinik selama periode yang ditentukan.
+
+Contoh aktivitas:
+- Mengatur pola makan.
+- Mengonsumsi makanan sesuai instruksi.
+- Melakukan puasa sesuai arahan terapis.
 - Melakukan aktivitas fisik.
+- Mengatur waktu istirahat.
 - Melakukan pengelolaan stres.
 
-Aktivitas tersebut merupakan contoh. Petugas harus dapat menambahkan instruksi aktivitas lainnya secara dinamis.
+Contoh di atas bukan daftar tertutup. Pihak klinik harus dapat membuat instruksi sesuai kebutuhan pasien.
 
-## C.1 Pembuatan Instruksi Aktivitas oleh Petugas
+#### 5.1 Pengelolaan Instruksi
 
-Petugas dapat membuat instruksi aktivitas mandiri untuk pasien.
+Pihak klinik dapat:
+- Membuat instruksi aktivitas.
+- Memilih pasien tujuan.
+- Menentukan nama aktivitas.
+- Menuliskan deskripsi instruksi.
+- Menentukan periode mulai dan berakhir.
+- Menentukan waktu pengingat.
+- Mengubah instruksi yang masih berjalan.
+- Membatalkan instruksi.
 
-Formulir minimal:
+Jangan menambahkan kolom frekuensi sebagai ketentuan wajib apabila belum menjadi bagian dari aturan operasional DSH.
 
-- Pasien tujuan.
-- Nama aktivitas.
-- Deskripsi instruksi.
-- Tanggal mulai.
-- Tanggal berakhir.
-- Jadwal aktivitas.
-- Frekuensi aktivitas.
-- Waktu pengingat.
-- Catatan tambahan.
-- Status instruksi.
+Setiap instruksi harus memiliki identitas sendiri dan terhubung dengan pasien.
 
-Contoh:
-
-Pasien Budi mendapatkan instruksi:
-
-- Aktivitas: Tidur sebelum pukul 22.00.
-- Deskripsi: Pasien diminta menjaga waktu tidur sebelum pukul 22.00.
-- Tanggal mulai: 10 November 2026.
-- Tanggal berakhir: 12 November 2026.
-- Frekuensi: Setiap hari.
-- Waktu pengingat: 21.00.
-
-Contoh lain:
-
-Aktivitas puasa sunnah dapat dijadwalkan hanya pada hari Senin dan Kamis.
-
-Sistem harus mendukung jadwal yang berbeda-beda. Jangan mengasumsikan semua aktivitas wajib dilakukan setiap hari.
-
-## C.2 Tampilan Aktivitas pada Aplikasi Pasien
+#### 5.2 Tampilan Aktivitas Pasien
 
 Pasien dapat melihat:
-
 - Nama aktivitas.
 - Deskripsi instruksi.
-- Jadwal aktivitas.
-- Frekuensi.
-- Periode aktivitas.
+- Periode pelaksanaan.
 - Waktu pengingat.
 - Status aktivitas.
-- Riwayat pelaporan.
+- Riwayat laporan.
 
-Pasien tidak dapat mengubah instruksi yang diberikan petugas.
+Pasien tidak dapat mengubah instruksi yang diberikan pihak klinik.
 
-## C.3 Pengingat Aktivitas
+#### 5.3 Pelaporan Aktivitas
 
-Sistem mengirimkan pengingat berdasarkan waktu yang telah ditentukan.
+Pasien dapat mengirimkan laporan pelaksanaan aktivitas melalui aplikasi mobile.
 
-Contoh:
-
-Pasien mendapatkan pengingat tidur sebelum pukul 22.00 pada pukul 21.00.
-
-Pengingat harus dikirim sesuai jadwal, bukan hanya ketika pasien membuka aplikasi.
-
-Gunakan sistem notifikasi yang dapat diganti provider-nya. Untuk tahap awal, implementasikan provider notifikasi yang tersedia atau mock notification jika kredensial layanan eksternal belum disediakan.
-
-Jangan mengklaim notifikasi push eksternal berhasil apabila belum terhubung dengan provider sebenarnya.
-
-## C.4 Pelaporan Aktivitas oleh Pasien
-
-Setelah melakukan aktivitas, pasien dapat mengirimkan laporan.
-
-Contoh:
-
-- Aktivitas: Tidur sebelum pukul 22.00.
-- Tanggal pelaksanaan: 10 November 2026.
-- Status: Dilaksanakan.
-- Catatan: Tidur pukul 21.45.
-
-Sediakan status pelaporan:
-
-- Dilaksanakan.
-- Tidak dilaksanakan.
-
-Sediakan catatan opsional.
-
-Laporan harus menyimpan:
-
+Data laporan minimal:
+- ID laporan.
 - ID pasien.
 - ID instruksi aktivitas.
 - Tanggal aktivitas.
-- Waktu laporan.
+- Waktu pengiriman laporan.
 - Status pelaksanaan.
-- Catatan pasien.
+- Catatan tambahan jika tersedia.
 
-Laporan merupakan pengakuan atau pelaporan mandiri pasien, bukan bukti objektif bahwa aktivitas benar-benar dilakukan.
+Status laporan:
+- Dilaksanakan.
+- Tidak dilaksanakan.
+- Terlambat, jika laporan diterima setelah batas waktu pelaporan pada hari yang bersangkutan.
 
-Pasien dapat mengirim laporan untuk jadwal yang sesuai dengan instruksi. Jangan mewajibkan laporan setiap hari jika frekuensi aktivitas tidak mengharuskannya.
+Ketentuan pelaporan:
+- Laporan merupakan pengakuan pasien, bukan bukti objektif bahwa aktivitas benar-benar dilakukan.
+- Pasien hanya dapat mengirim laporan sesuai instruksi dan periode yang berlaku.
+- Sistem harus membedakan aktivitas yang belum dilaporkan dengan aktivitas yang tidak dilaksanakan.
+- Jika tanggal aktivitas sudah berganti, laporan untuk hari sebelumnya tidak boleh dianggap sebagai laporan tepat waktu.
+- Jika perangkat sedang offline, laporan dapat disimpan sementara dan dikirimkan ketika koneksi tersedia kembali.
+- Laporan yang sudah tersimpan harus dapat dilihat kembali oleh pasien dan pihak klinik.
 
-## C.5 Monitoring Aktivitas oleh Petugas
+#### 5.4 Pengingat Aktivitas
 
-Petugas dapat melihat:
+Sistem mengirimkan pengingat berdasarkan waktu yang ditentukan pihak klinik.
 
-- Aktivitas yang sedang berjalan.
-- Aktivitas yang sudah selesai.
+Pengingat harus tetap berjalan meskipun pasien tidak sedang membuka aplikasi.
+
+Sediakan pencatatan riwayat pengingat dan status pengirimannya. Jangan mengklaim notifikasi eksternal berhasil apabila provider sebenarnya belum terintegrasi.
+
+#### 5.5 Monitoring oleh Pihak Klinik
+
+Pihak klinik dapat melihat:
+- Instruksi aktivitas yang sedang berjalan.
+- Periode setiap instruksi.
+- Laporan aktivitas pasien.
 - Aktivitas yang belum dilaporkan.
-- Aktivitas yang tidak dilaksanakan.
-- Riwayat laporan pasien.
-- Jadwal pengingat.
-- Periode instruksi.
+- Aktivitas yang dilaporkan terlambat.
+- Aktivitas yang dilaporkan tidak dilaksanakan.
+- Riwayat laporan.
+- Status proses aktivitas.
 
-Petugas dapat memperbarui atau membatalkan instruksi aktivitas.
+Data laporan harus dapat digunakan pihak klinik untuk memantau pelaksanaan aktivitas sebelum pasien datang pada pertemuan berikutnya.
 
-Setiap perubahan harus tercatat dalam riwayat.
+## 4. Alur Proses Sistem Secara Keseluruhan
 
----
+Alur sistem harus mengikuti proses bisnis DSH berikut:
 
-# 7. PENERAPAN EVENT-DRIVEN ARCHITECTURE
+1. Pasien mengajukan pendaftaran.
+2. Pihak klinik mencatat data pasien.
+3. Pihak klinik menentukan kategori pasien, yaitu Umum atau MHLS.
+4. Pihak klinik menentukan jadwal kunjungan pertama.
+5. Sistem menyimpan data dan mengirimkan informasi jadwal.
+6. Pasien datang ke klinik.
+7. Pihak klinik melakukan pemeriksaan dan terapi.
+8. Pihak klinik mencatat hasil pemeriksaan.
+9. Pihak klinik menentukan instruksi aktivitas mandiri dan periodenya jika diperlukan.
+10. Sistem menyimpan hasil pemeriksaan dan instruksi.
+11. Pasien menerima instruksi dan pulang.
 
-Implementasikan EDA pada proses yang memang membutuhkan komunikasi berbasis kejadian.
+Untuk pasien umum, proses dapat berakhir setelah kunjungan sesuai kebutuhan pelayanan.
 
-Jangan memaksakan seluruh operasi CRUD menjadi event-driven.
+Untuk pasien MHLS:
+1. Setelah kategori MHLS dipastikan dan instruksi awal diberikan, pihak klinik mengarahkan pasien untuk menggunakan aplikasi mobile.
+2. Pasien menginstal aplikasi dan masuk menggunakan akun yang diberikan klinik.
+3. Pasien melaksanakan aktivitas mandiri sesuai instruksi.
+4. Pasien mengirimkan laporan aktivitas melalui aplikasi.
+5. Sistem menyimpan laporan dan memperbarui informasi monitoring.
+6. Pihak klinik memantau laporan aktivitas pasien.
+7. Pasien mengajukan jadwal pertemuan berikutnya melalui aplikasi.
+8. Pihak klinik mengonfirmasi jadwal.
+9. Pasien datang untuk pemeriksaan dan terapi berikutnya.
+10. Pihak klinik mengevaluasi aktivitas mandiri periode sebelumnya dan mencatat hasil pemeriksaan.
+11. Pihak klinik memberikan instruksi aktivitas mandiri untuk periode berikutnya.
+12. Proses berulang sampai program mencapai 12 pertemuan.
 
-## A. Komponen EDA
+Sistem harus mencatat perkembangan setiap pertemuan dan status program MHLS. Penghitungan pertemuan tidak boleh hanya berdasarkan jumlah instruksi atau laporan aktivitas.
 
-Implementasikan komponen berikut:
+## 5. Penerapan Event-Driven Architecture
 
+EDA digunakan untuk menghubungkan proses antarbagian sistem melalui pertukaran event.
+
+Jangan memaksakan seluruh operasi CRUD menjadi event-driven. Gunakan event pada kejadian yang memang membutuhkan komunikasi atau pemicu proses lain.
+
+Komponen yang perlu disiapkan:
 1. Event Producer.
 2. Event.
-3. Event Dispatcher atau Event Handler.
-4. Event Consumer.
-5. Event Store atau Outbox.
-6. Mekanisme idempotency.
+3. Event Dispatcher.
+4. Event Handler/Consumer.
+5. Transactional Outbox.
+6. Idempotency.
 7. Logging dan monitoring event.
 
-Gunakan Transactional Outbox Pattern untuk mengurangi risiko data berhasil disimpan tetapi event gagal diterbitkan.
-
-## B. Contoh Event
-
-Buat event dengan struktur yang konsisten.
-
 Contoh event:
-
-- `PatientProgressRecorded`
+- `PatientRegistered`
+- `VisitScheduled`
+- `VisitConfirmed`
+- `ExaminationRecorded`
+- `PatientProgressUpdated`
 - `ActivityPlanCreated`
 - `ActivityPlanUpdated`
 - `ActivityPlanCancelled`
-- `ActivityReminderDue`
 - `PatientActivityReported`
-- `ActivityPlanCompleted`
+- `ActivityReminderDue`
+- `MHLSMeetingCompleted`
 
-Setiap event minimal mempunyai:
+Gunakan Transactional Outbox Pattern agar penyimpanan data utama dan pencatatan event dapat dilakukan secara konsisten.
 
-- event_id.
-- event_type.
-- aggregate_id.
-- occurred_at.
-- payload.
-- correlation_id.
-- event_version.
+Setiap event minimal memiliki:
+- `event_id`
+- `event_type`
+- `aggregate_id`
+- `occurred_at`
+- `payload`
+- `correlation_id`
+- `event_version`
 
-Jangan mencampurkan event dengan status database. Event menyatakan sesuatu yang telah terjadi.
-
-## C. Alur Penerbitan Event
-
-Contoh ketika petugas membuat instruksi aktivitas:
-
-1. Petugas mengisi formulir aktivitas.
+Alur contoh:
+1. Pihak klinik menyimpan instruksi aktivitas.
 2. Backend melakukan validasi.
-3. Backend menyimpan instruksi aktivitas ke database.
-4. Dalam transaksi database yang sama, backend menyimpan event ke tabel outbox.
-5. Event Dispatcher membaca event yang belum diproses.
+3. Backend menyimpan instruksi ke database.
+4. Backend menyimpan event ke tabel outbox dalam transaksi yang sama.
+5. Event dispatcher mengambil event yang belum diproses.
 6. Event diteruskan ke handler.
-7. Handler menjalankan tindakan yang diperlukan.
-8. Status pemrosesan event dicatat.
+7. Handler menjalankan proses yang relevan, misalnya memulai workflow Temporal.
+8. Sistem mencatat status pemrosesan event.
 
-Gunakan mekanisme retry yang aman dan idempotent agar event yang dikirim ulang tidak membuat workflow ganda.
+Pastikan event yang diterima lebih dari satu kali tidak menyebabkan proses atau workflow ganda.
 
-## D. Alur Event yang Harus Diimplementasikan
+## 6. Penerapan Durable Workflow Orchestration Menggunakan Temporal
 
-### Alur 1 — Pembuatan Aktivitas
+Temporal digunakan untuk mengelola workflow aktivitas mandiri pasien MHLS yang memiliki periode, jadwal pengingat, waktu tunggu, dan pelaporan.
 
-`ActivityPlanCreated`
+EDA dan Temporal memiliki tanggung jawab berbeda:
 
-Event ini diterbitkan ketika petugas membuat instruksi aktivitas baru.
+- **EDA:** menyampaikan informasi mengenai kejadian yang berlangsung di dalam sistem.
+- **Temporal:** mengelola urutan dan kelangsungan workflow berdasarkan kejadian, waktu, dan kondisi proses.
 
-Consumer akan meminta Temporal Client untuk memulai workflow aktivitas tersebut.
+Buat workflow untuk mengelola satu instruksi aktivitas mandiri beserta jadwalnya.
 
-### Alur 2 — Perubahan Aktivitas
+Komponen Temporal:
+- Temporal Server.
+- Temporal Client.
+- Temporal Worker.
+- Workflow.
+- Activity.
+- Durable Timer.
+- Signal.
+- Retry Policy.
 
-`ActivityPlanUpdated`
-
-Event ini diterbitkan ketika petugas memperbarui instruksi atau jadwal aktivitas.
-
-Workflow yang sedang berjalan harus dapat menerima perubahan melalui mekanisme Signal atau mekanisme pembaruan workflow yang sesuai.
-
-Pastikan jadwal lama tidak tetap berjalan setelah perubahan diterapkan.
-
-### Alur 3 — Pembatalan Aktivitas
-
-`ActivityPlanCancelled`
-
-Event ini diterbitkan ketika petugas membatalkan instruksi.
-
-Workflow harus menerima pembatalan dan menghentikan jadwal pengingat yang tidak lagi relevan.
-
-### Alur 4 — Pelaporan Pasien
-
-`PatientActivityReported`
-
-Event ini diterbitkan setelah pasien mengirimkan laporan aktivitas.
-
-Backend menyimpan laporan terlebih dahulu, lalu mengirimkan informasi laporan ke workflow Temporal melalui Signal.
-
-Jangan mengirim laporan langsung ke Temporal tanpa menyimpan data laporan ke database.
-
----
-
-# 8. PENERAPAN DURABLE WORKFLOW ORCHESTRATION MENGGUNAKAN TEMPORAL
-
-Temporal harus menjadi komponen utama untuk mengelola siklus hidup aktivitas mandiri pasien yang berlangsung dalam periode tertentu.
-
-## A. Konsep Workflow
-
-Buat satu workflow untuk satu instruksi aktivitas mandiri.
-
-Contoh:
-
-Pasien Budi mendapatkan satu instruksi aktivitas tidur sebelum pukul 22.00 selama tiga hari.
-
-Sistem membuat satu workflow:
-
+Contoh workflow:
 `ActivityPlanWorkflow`
 
-Workflow tersebut mengelola seluruh jadwal aktivitas selama tiga hari.
-
-Jangan membuat satu workflow baru untuk setiap pengingat.
-
-## B. Komponen Temporal
-
-Implementasikan:
-
-### 1. Temporal Server
-
-Berfungsi sebagai engine yang menyimpan dan mengelola riwayat eksekusi workflow.
-
-Gunakan Temporal Server yang sudah tersedia, bukan membuat workflow engine sendiri.
-
-Untuk development, jalankan menggunakan Docker.
-
-### 2. Temporal Client
-
-Digunakan backend untuk:
-
-- Memulai workflow.
-- Mengirim Signal.
-- Meminta pembatalan.
-- Mengirim pembaruan instruksi.
-
-### 3. Temporal Worker
-
-Worker menjalankan kode Workflow dan Activity.
-
-Worker harus dapat dijalankan sebagai proses atau container terpisah dari Laravel.
-
-### 4. Workflow
-
-Workflow mengatur urutan proses aktivitas mandiri.
-
-### 5. Activity
-
-Activity menjalankan operasi eksternal yang tidak boleh dilakukan langsung di kode Workflow.
-
-Contohnya:
-
-- Mengirim notifikasi.
-- Mengambil data instruksi aktivitas jika diperlukan.
-- Memperbarui status proses.
-- Menjalankan integrasi eksternal.
-
-### 6. Timer
-
-Timer digunakan untuk menunggu jadwal tertentu.
-
-Gunakan durable timer Temporal, bukan sekadar `setTimeout`, sleep biasa di backend, atau cron job untuk mengelola seluruh siklus workflow.
-
-### 7. Signal
-
-Signal digunakan untuk mengirimkan informasi dari backend ke workflow yang sedang berjalan.
-
-Contoh:
-
-- Pasien telah melaporkan aktivitas.
-- Petugas mengubah jadwal.
-- Petugas membatalkan instruksi.
-
-## C. Alur Workflow Utama
-
-Implementasikan alur berikut.
-
-### Tahap 1 — Workflow Dimulai
-
-1. Petugas membuat instruksi aktivitas.
-2. Backend menyimpan instruksi.
-3. Event `ActivityPlanCreated` diterbitkan.
-4. Event handler menerima event.
-5. Temporal Client memulai `ActivityPlanWorkflow`.
-6. Workflow menerima parameter instruksi aktivitas.
-
-### Tahap 2 — Menunggu Jadwal Pengingat
-
-1. Workflow membaca jadwal aktivitas.
-2. Workflow menunggu waktu pengingat menggunakan durable timer.
-3. Ketika waktu pengingat tercapai, workflow memanggil Activity pengiriman notifikasi.
-
-### Tahap 3 — Mengirim Pengingat
-
-1. Workflow memanggil Activity `SendActivityReminder`.
-2. Activity mengambil informasi pasien dan instruksi.
-3. Activity mengirim notifikasi melalui notification provider.
-4. Hasil pengiriman dicatat.
-5. Workflow melanjutkan proses.
-
-### Tahap 4 — Menunggu Laporan Pasien
-
-1. Setelah pengingat dikirim, workflow menunggu laporan pasien melalui Signal.
-2. Pasien dapat mengirim laporan melalui aplikasi.
-3. Backend memvalidasi laporan.
-4. Backend menyimpan laporan ke database.
-5. Backend mengirim Signal ke workflow terkait.
-6. Workflow menerima informasi laporan.
-7. Workflow mencatat bahwa jadwal tersebut sudah mendapatkan laporan.
-
-### Tahap 5 — Menangani Laporan Terlambat atau Tidak Masuk
-
-Jika sampai batas waktu yang ditentukan pasien belum memberikan laporan:
-
-1. Workflow dapat menandai jadwal sebagai belum dilaporkan.
-2. Workflow dapat mengirim pengingat lanjutan jika aturan mengizinkan.
-3. Workflow dapat mencatat bahwa batas waktu pelaporan telah terlewati.
-4. Workflow tetap dapat melanjutkan ke jadwal berikutnya.
-
-Jangan otomatis menganggap pasien tidak melakukan aktivitas hanya karena tidak mengirim laporan.
-
-Bedakan:
-
-- Belum dilaporkan.
-- Dilaksanakan.
-- Tidak dilaksanakan.
-- Batas pelaporan terlewati.
-
-### Tahap 6 — Melanjutkan Jadwal Berikutnya
-
-Jika instruksi memiliki beberapa jadwal:
-
-1. Workflow menunggu jadwal berikutnya.
-2. Workflow mengirim pengingat sesuai jadwal.
-3. Workflow menunggu laporan.
-4. Proses berulang sampai periode instruksi berakhir.
-
-### Tahap 7 — Penyelesaian Workflow
-
-Jika seluruh jadwal dalam periode instruksi telah selesai:
-
-1. Workflow memperbarui status proses menjadi selesai.
-2. Workflow mencatat waktu penyelesaian.
-3. Workflow berhenti secara normal.
-
-Status workflow dan status pelaporan aktivitas harus dibedakan.
-
-## D. Penanganan Perubahan dan Pembatalan
-
-Workflow harus mendukung:
-
-- Perubahan tanggal mulai.
-- Perubahan tanggal berakhir.
-- Perubahan frekuensi.
-- Perubahan waktu pengingat.
-- Pembatalan instruksi.
-
-Gunakan Signal atau mekanisme update workflow Temporal yang tepat.
-
-Ketika terjadi perubahan, pastikan workflow tidak menjalankan jadwal lama yang sudah tidak berlaku.
-
-Ketika terjadi pembatalan, hentikan proses pengingat berikutnya secara aman.
-
-## E. Penanganan Gangguan
-
-Implementasikan dan demonstrasikan skenario berikut:
-
-1. Worker berhenti ketika workflow sedang menunggu timer.
-2. Worker dijalankan kembali.
-3. Workflow dapat dilanjutkan berdasarkan riwayat eksekusinya.
-4. Laporan pasien masuk ketika workflow sedang menunggu.
-5. Event diterima lebih dari satu kali.
-6. Notifikasi mengalami kegagalan.
-7. Instruksi aktivitas dibatalkan ketika workflow sedang berjalan.
-
-Gunakan retry policy untuk Activity yang sesuai.
-
-Pastikan Activity eksternal seperti pengiriman notifikasi dirancang idempotent untuk mengurangi risiko pengiriman ganda.
-
-Jangan menjanjikan exactly-once delivery untuk notifikasi eksternal. Jelaskan batasan antara jaminan eksekusi workflow Temporal dan keberhasilan pengiriman oleh provider eksternal.
-
----
-
-# 9. RANCANGAN DATABASE
-
-Rancang database relasional dengan struktur yang terpisah dan konsisten.
-
-Minimal sediakan tabel berikut:
-
-### Tabel `users`
-
-Menyimpan akun login petugas dan pasien.
-
-### Tabel `patients`
-
-Menyimpan identitas pasien.
-
-### Tabel `patient_progress_sessions`
-
-Menyimpan sesi pemeriksaan pasien.
-
-### Tabel `toxin_assessment_results`
-
-Menyimpan ringkasan hasil Toxin Assessment.
-
-### Tabel `toxin_assessment_answers`
-
-Menyimpan jawaban dari masing-masing indikator.
-
-### Tabel `body_measurements`
-
-Menyimpan hasil pemeriksaan parameter tubuh.
-
-### Tabel `blood_measurements`
-
-Menyimpan hasil pemeriksaan parameter darah dan ketosis.
-
-### Tabel `activity_plans`
-
-Menyimpan instruksi aktivitas mandiri.
-
-### Tabel `activity_schedules`
-
-Menyimpan jadwal aktivitas.
-
-### Tabel `patient_activity_reports`
-
-Menyimpan laporan aktivitas dari pasien.
-
-### Tabel `notification_logs`
-
-Menyimpan riwayat pengiriman notifikasi.
-
-### Tabel `outbox_events`
-
-Menyimpan event yang menunggu atau telah diproses.
-
-### Tabel `workflow_references`
-
-Menyimpan referensi workflow Temporal, seperti workflow_id, activity_plan_id, status sinkronisasi, dan waktu mulai.
-
-Jika diperlukan, tambahkan tabel pendukung untuk audit log, master indikator, dan konfigurasi jadwal.
+Alur:
+1. Instruksi aktivitas dibuat oleh pihak klinik.
+2. Backend menyimpan instruksi dan menerbitkan event.
+3. Event handler menerima event.
+4. Temporal Client memulai workflow.
+5. Workflow mengelola periode dan jadwal pengingat.
+6. Workflow menunggu waktu pengingat menggunakan durable timer.
+7. Ketika waktunya tiba, workflow menjalankan Activity untuk mengirimkan pengingat.
+8. Workflow menunggu laporan pasien melalui Signal.
+9. Backend memvalidasi dan menyimpan laporan ke database.
+10. Backend mengirimkan Signal kepada workflow terkait.
+11. Workflow memperbarui status proses dan melanjutkan jadwal berikutnya.
+12. Workflow berakhir ketika periode instruksi selesai atau instruksi dibatalkan.
+
+Ketentuan:
+- Gunakan durable timer Temporal, bukan sekadar `setTimeout`, `sleep`, atau cron job sebagai pengelola seluruh siklus workflow.
+- Gunakan Signal untuk menyampaikan laporan pasien dan perubahan yang relevan kepada workflow.
+- Laporan pasien harus disimpan ke database terlebih dahulu sebelum informasi laporan dikirim ke Temporal.
+- Perubahan instruksi harus membuat workflow menyesuaikan jadwal yang berlaku.
+- Pembatalan instruksi harus menghentikan proses pengingat yang tidak lagi relevan.
+- Worker yang berhenti dan dijalankan kembali harus dapat melanjutkan workflow berdasarkan riwayat eksekusinya.
+- Terapkan retry untuk Activity yang sesuai.
+- Rancang Activity eksternal secara idempotent.
+
+Jangan menyamakan status laporan aktivitas, status instruksi, dan status internal workflow Temporal.
+
+## 7. Rancangan Data dan Database
+
+Gunakan database relasional MySQL dengan struktur yang konsisten.
+
+Entitas utama yang perlu dipertimbangkan:
+
+1. `users`: akun petugas dan pasien.
+2. `patients`: identitas dan kategori pasien.
+3. `visits`: data kunjungan dan pertemuan pasien.
+4. `appointments`: jadwal dan pengajuan booking.
+5. `examination_sessions`: sesi pemeriksaan pasien.
+6. `symptom_assessments`: ringkasan pemeriksaan gejala.
+7. `symptom_assessment_answers`: jawaban setiap indikator gejala.
+8. `blood_measurements`: hasil pemeriksaan darah.
+9. `body_measurements`: hasil pemeriksaan tubuh.
+10. `metabolic_measurements`: hasil pemeriksaan metabolik sesuai data DSH.
+11. `glucose_ketone_measurements`: hasil glukosa, keton, dan GKI.
+12. `activity_evaluations`: hasil evaluasi aktivitas mandiri pada pertemuan.
+13. `activity_plans`: instruksi aktivitas mandiri.
+14. `activity_schedules`: jadwal pelaksanaan dan pengingat.
+15. `patient_activity_reports`: laporan aktivitas pasien.
+16. `notification_logs`: riwayat pengiriman pengingat.
+17. `outbox_events`: event yang menunggu atau telah diproses.
+18. `workflow_references`: referensi workflow Temporal.
+19. `audit_logs`: riwayat perubahan data penting.
+
+Nama dan pemisahan tabel dapat disesuaikan setelah ERD dibuat. Jangan memaksakan tabel yang tidak diperlukan.
 
 Pastikan:
-
 - Primary key dan foreign key jelas.
-- Relasi antartabel konsisten.
-- Data historis tidak tertimpa ketika ada pemeriksaan baru.
-- Instruksi yang diperbarui tetap memiliki riwayat perubahan.
-- Workflow ID memiliki hubungan yang jelas dengan instruksi aktivitas.
-- Status proses aplikasi tidak disamakan dengan status internal Temporal.
+- Relasi pasien, kunjungan, pemeriksaan, instruksi, dan laporan konsisten.
+- Riwayat pemeriksaan tidak tertimpa.
+- Data kosong tidak disimpan sebagai nol.
+- Riwayat perubahan instruksi dapat ditelusuri.
+- Setiap workflow memiliki referensi ke instruksi yang dikelolanya.
+- Data pasien tetap berada di database aplikasi, bukan di Temporal.
+- Status aplikasi tidak disamakan dengan status internal Temporal.
 
-Buat ERD untuk seluruh tabel.
+Buat ERD sebelum implementasi database.
 
----
+## 8. Rancangan Arsitektur Aplikasi
 
-# 10. RANCANGAN ARSITEKTUR APLIKASI
+Gunakan arsitektur yang memisahkan tanggung jawab setiap komponen.
 
-Gunakan arsitektur yang sederhana, tetapi benar-benar memperlihatkan pemisahan tanggung jawab.
-
-Komponen yang diharapkan:
-
-1. Flutter Mobile App.
-2. Web Admin.
+Komponen:
+1. Web Admin Klinik.
+2. Flutter Mobile App Pasien.
 3. Laravel Backend API.
 4. MySQL Database.
 5. Transactional Outbox.
-6. Event Dispatcher / Event Handler.
+6. Event Dispatcher dan Handler.
 7. Temporal Client.
 8. Temporal Server.
 9. Temporal Worker.
 10. Notification Provider.
 
-Jika belum ada project, gunakan rancangan teknologi berikut sebagai pilihan awal:
-
-- Backend: PHP dan Laravel.
-- Mobile: Dart dan Flutter.
+Pilihan teknologi:
+- Backend: Laravel.
+- Mobile: Flutter.
 - Database: MySQL.
 - Workflow Engine: Temporal.
 - Worker: Go dengan Temporal SDK.
 - Containerization: Docker dan Docker Compose.
 - API Testing: Postman.
 
-Penting:
+Laravel menangani autentikasi, validasi, API, database, dan penerbitan event. Temporal Worker menjalankan workflow dan Activity menggunakan Temporal SDK.
 
-Jangan mengasumsikan Laravel harus menjalankan Temporal Workflow secara langsung.
+Jangan mengasumsikan Laravel harus menjalankan workflow Temporal secara langsung. Verifikasi dukungan SDK dan mekanisme integrasi yang digunakan. Jangan membuat library, endpoint, atau API fiktif.
 
-Pisahkan backend Laravel dan Temporal Worker.
+## 9. Hak Akses Pengguna
 
-Laravel menangani request API, autentikasi, validasi, database, dan penerbitan event.
+Sediakan dua aktor utama.
 
-Worker Go menjalankan Workflow dan Activity menggunakan Temporal SDK.
-
-Laravel berkomunikasi dengan Temporal melalui Temporal Client yang sesuai, misalnya melalui service atau adapter integrasi yang dapat dipelihara.
-
-Sebelum memilih pendekatan integrasi, verifikasi dukungan SDK dan protokol Temporal yang digunakan. Jangan membuat library atau API fiktif.
-
-Jika terdapat keterbatasan SDK pada stack yang dipilih, jelaskan dan pilih solusi integrasi yang benar-benar dapat dijalankan.
-
----
-
-# 11. RANCANGAN ANTARMUKA
-
-Buat UI yang profesional, sederhana, responsif, dan konsisten.
-
-## A. Web Admin
-
-Halaman minimal:
-
-1. Login.
-2. Dashboard.
-3. Daftar pasien.
-4. Detail pasien.
-5. Riwayat pemeriksaan pasien.
-6. Form pencatatan Toxin Assessment.
-7. Form pencatatan Body dan Ketosis.
-8. Grafik perkembangan pasien.
-9. Daftar aktivitas mandiri pasien.
-10. Form pembuatan instruksi aktivitas.
-11. Detail aktivitas dan jadwal.
-12. Riwayat pelaporan aktivitas.
-13. Monitoring workflow aktivitas.
-14. Riwayat notifikasi.
-
-## B. Mobile Pasien
-
-Halaman minimal:
-
-1. Login.
-2. Dashboard pasien.
-3. Riwayat pemeriksaan.
-4. Detail hasil pemeriksaan.
-5. Grafik perkembangan.
-6. Daftar aktivitas mandiri.
-7. Detail instruksi aktivitas.
-8. Pengingat aktivitas.
-9. Form pelaporan aktivitas.
-10. Riwayat aktivitas.
-
-Buat desain yang mudah digunakan, terutama untuk pasien yang tidak terbiasa menggunakan aplikasi digital.
-
----
-
-# 12. AUTENTIKASI DAN HAK AKSES
-
-Implementasikan dua jenis pengguna utama:
-
-### Admin/Petugas
-
-Dapat:
-
-- Mengelola pasien.
-- Mencatat pemeriksaan.
-- Melihat perkembangan seluruh pasien.
-- Membuat instruksi aktivitas.
-- Mengubah instruksi aktivitas.
-- Membatalkan instruksi aktivitas.
-- Memantau laporan pasien.
+**Pihak Klinik**
+- Mengelola data pasien.
+- Menentukan kategori pasien.
+- Mengelola jadwal kunjungan.
+- Mencatat hasil pemeriksaan.
+- Melihat riwayat perkembangan pasien.
+- Membuat instruksi aktivitas mandiri.
+- Mengubah atau membatalkan instruksi.
+- Memantau laporan aktivitas.
 - Memantau status workflow.
 
-### Pasien
-
-Dapat:
-
-- Melihat data miliknya.
+**Pasien**
+- Masuk menggunakan akun dari klinik.
+- Melihat jadwal kunjungan.
+- Mengajukan jadwal pertemuan MHLS berikutnya.
 - Melihat hasil pemeriksaan miliknya.
-- Melihat grafik perkembangan miliknya.
+- Melihat grafik perkembangan.
 - Melihat instruksi aktivitas.
 - Menerima pengingat.
 - Mengirim laporan aktivitas.
-- Melihat riwayat laporan miliknya.
+- Melihat riwayat laporannya sendiri.
 
-Pastikan otorisasi dilakukan di backend, bukan hanya menyembunyikan menu di frontend.
+Pastikan otorisasi diterapkan di backend. Pasien tidak boleh mengakses data pasien lain.
 
-Pasien tidak boleh mengakses data pasien lain.
+## 10. Rancangan Antarmuka
 
----
+Buat tampilan profesional, sederhana, konsisten, responsif, dan mudah digunakan.
 
-# 13. PENGUJIAN SISTEM
+### Web Admin
+Halaman utama:
+1. Login.
+2. Dashboard.
+3. Daftar pasien.
+4. Tambah dan detail pasien.
+5. Riwayat kunjungan.
+6. Pengelolaan jadwal/booking.
+7. Pencatatan pemeriksaan.
+8. Form Gejala.
+9. Form Darah.
+10. Form Tubuh.
+11. Form Metabolik.
+12. Form Glukosa-Keton.
+13. Form Evaluasi Aktivitas Mandiri.
+14. Riwayat pemeriksaan.
+15. Grafik perkembangan pasien.
+16. Daftar instruksi aktivitas.
+17. Form instruksi aktivitas.
+18. Monitoring laporan aktivitas.
+19. Riwayat pengingat.
+20. Monitoring workflow.
 
-Siapkan pengujian fungsional dan pengujian khusus EDA serta Temporal.
+### Mobile App Pasien
+Halaman utama:
+1. Login.
+2. Dashboard.
+3. Jadwal kunjungan.
+4. Pengajuan booking MHLS.
+5. Riwayat pemeriksaan.
+6. Detail hasil pemeriksaan.
+7. Grafik perkembangan.
+8. Daftar instruksi aktivitas.
+9. Detail instruksi.
+10. Pengingat.
+11. Form laporan aktivitas.
+12. Riwayat laporan.
 
-## A. Pengujian Fungsional
+Jangan menampilkan fitur yang tidak relevan dengan kategori pasien. Pasien umum tidak perlu melihat fitur aktivitas mandiri MHLS apabila tidak mengikuti program tersebut.
 
-- Login admin berhasil.
-- Login pasien berhasil.
-- Admin membuat data pasien.
-- Admin mencatat pemeriksaan.
-- Sistem menghitung hasil Toxin Assessment.
-- Sistem menyimpan hasil Body dan Ketosis.
-- Pasien melihat hasil pemeriksaan.
-- Pasien melihat grafik perkembangan.
-- Admin membuat instruksi aktivitas.
-- Pasien melihat instruksi.
-- Pasien mengirim laporan.
-- Admin melihat laporan.
+## 11. Pengujian Sistem
 
-## B. Pengujian Event-Driven Architecture
+Pengujian harus mencakup fungsionalitas sistem dan implementasi EDA serta Temporal.
 
-- Event berhasil diterbitkan setelah transaksi database berhasil.
+### Pengujian Fungsional
+- Pendaftaran pasien.
+- Penentuan kategori pasien.
+- Pembuatan dan konfirmasi jadwal.
+- Pencatatan pemeriksaan.
+- Perhitungan klasifikasi gejala.
+- Perhitungan GKI.
+- Penyimpanan dan penampilan riwayat pemeriksaan.
+- Visualisasi perkembangan.
+- Pembuatan instruksi aktivitas.
+- Pengiriman laporan pasien.
+- Monitoring laporan oleh pihak klinik.
+- Penghitungan pertemuan MHLS.
+
+### Pengujian EDA
+- Event diterbitkan setelah transaksi database berhasil.
 - Event tidak diterbitkan jika transaksi utama gagal.
-- Event yang gagal diproses dapat dicoba kembali.
-- Event duplikat tidak menghasilkan workflow ganda.
-- Event memiliki correlation ID.
-- Riwayat pemrosesan event dapat ditelusuri.
+- Event dapat diproses ulang ketika terjadi kegagalan.
+- Event duplikat tidak memulai workflow ganda.
+- Correlation ID dapat digunakan untuk menelusuri proses.
+- Riwayat pemrosesan event dapat dilihat.
 
-## C. Pengujian Temporal
-
+### Pengujian Temporal
 - Workflow berhasil dimulai.
-- Workflow menunggu timer.
-- Workflow mengirim pengingat.
-- Workflow menerima Signal laporan pasien.
-- Workflow menangani laporan terlambat.
-- Workflow melanjutkan jadwal berikutnya.
+- Workflow menunggu menggunakan durable timer.
+- Workflow mengirim pengingat sesuai jadwal.
+- Workflow menerima laporan melalui Signal.
 - Workflow menerima perubahan instruksi.
 - Workflow menerima pembatalan.
-- Workflow dapat melanjutkan setelah Worker dihentikan dan dijalankan kembali.
-- Activity yang gagal dapat dicoba kembali sesuai kebijakan retry.
+- Workflow melanjutkan jadwal berikutnya.
+- Workflow dapat dilanjutkan setelah Worker dihentikan dan dijalankan kembali.
+- Activity yang gagal dapat dicoba kembali sesuai retry policy.
 
-## D. Pengujian Skenario Gangguan
+Jalankan pengujian dengan skenario nyata yang dapat didemonstrasikan. Jangan hanya menunjukkan tampilan UI atau mengklaim fitur berjalan tanpa pengujian.
 
-Buat demonstrasi yang jelas:
+## 12. Batasan Pengembangan
 
-**Skenario 1: Worker mati ketika workflow menunggu pengingat.**
+Jangan menambahkan:
+- AI atau Machine Learning.
+- Diagnosis medis otomatis.
+- Prediksi kondisi pasien.
+- Rekomendasi terapi otomatis.
+- Integrasi alat pemeriksaan eksternal yang belum menjadi kebutuhan.
+- Modul farmasi.
+- Modul pembayaran dan keuangan.
+- Penggantian penuh rekam medis elektronik klinik.
+- Fitur lain yang tidak termasuk dalam lima modul utama.
 
-Hentikan Worker, tunggu beberapa saat, jalankan kembali Worker, lalu verifikasi workflow tetap dapat melanjutkan proses.
+Jangan menganggap laporan aktivitas pasien sebagai bukti objektif pelaksanaan aktivitas.
 
-**Skenario 2: Pasien melaporkan aktivitas.**
+Jangan menganggap pasien tidak melakukan aktivitas hanya karena belum mengirim laporan.
 
-Kirim laporan dari aplikasi pasien, pastikan laporan tersimpan di database, kemudian pastikan workflow menerima Signal.
+Jangan menjadikan semua operasi CRUD sebagai event-driven.
 
-**Skenario 3: Instruksi diubah.**
+Jangan menjadikan Temporal sebagai database utama pasien.
 
-Ubah waktu pengingat melalui web admin, pastikan jadwal lama tidak dijalankan lagi.
+Jangan menyamakan EDA dan Temporal karena keduanya memiliki fungsi berbeda.
 
-**Skenario 4: Event duplikat.**
+## 13. Tahapan Pengerjaan
 
-Kirim event yang sama lebih dari sekali, pastikan tidak ada workflow ganda.
+Kerjakan secara bertahap menggunakan pendekatan Incremental Development.
 
-**Skenario 5: Workflow dibatalkan.**
-
-Batalkan instruksi aktivitas, pastikan pengingat berikutnya tidak dijalankan.
-
----
-
-# 14. VISUALISASI DAN DOKUMENTASI TEKNIS
-
-Selain membangun aplikasi, buat dokumentasi berikut:
-
-1. Diagram arsitektur sistem.
-2. Diagram komponen EDA.
-3. Diagram alur event.
-4. Diagram lifecycle workflow Temporal.
-5. Activity Diagram proses pencatatan perkembangan pasien.
-6. Sequence Diagram pembuatan instruksi aktivitas.
-7. Sequence Diagram pengiriman pengingat.
-8. Sequence Diagram pelaporan aktivitas pasien.
-9. Sequence Diagram perubahan instruksi.
-10. Sequence Diagram pemulihan workflow setelah Worker mengalami gangguan.
-11. ERD database.
-12. Dokumentasi API.
-13. Dokumentasi event beserta payload.
-14. Dokumentasi Workflow, Activity, Timer, dan Signal.
-15. Panduan menjalankan seluruh komponen menggunakan Docker.
-
-Gunakan PlantUML untuk diagram agar mudah diperbarui.
-
----
-
-# 15. BATASAN DAN HAL YANG TIDAK BOLEH DILAKUKAN
-
-1. Jangan menambahkan AI, Machine Learning, atau prediksi otomatis.
-2. Jangan membuat diagnosis medis otomatis.
-3. Jangan menganggap laporan pasien sebagai bukti objektif aktivitas.
-4. Jangan menganggap pasien tidak melakukan aktivitas hanya karena tidak mengirim laporan.
-5. Jangan mewajibkan seluruh aktivitas dilaporkan setiap hari.
-6. Jangan membuat satu workflow baru untuk setiap pengingat.
-7. Jangan menggunakan cron job sebagai pengganti keseluruhan workflow Temporal.
-8. Jangan menggunakan timer biasa di backend sebagai pengganti durable timer Temporal.
-9. Jangan menjadikan seluruh CRUD sebagai event-driven.
-10. Jangan menganggap Temporal sebagai database utama data pasien.
-11. Jangan menganggap EDA dan Temporal adalah teknologi yang sama.
-12. Jangan mengirim laporan pasien ke Temporal sebelum laporan disimpan di database.
-13. Jangan membuat notifikasi eksternal palsu seolah-olah berhasil dikirim.
-14. Jangan menambahkan modul booking kunjungan, pembayaran, farmasi, rekam medis lengkap, atau modul klinik lainnya pada tahap pertama.
-
----
-
-# 16. TAHAPAN PENGERJAAN
-
-Kerjakan secara bertahap dan jangan langsung membuat semua komponen tanpa memeriksa konsistensi arsitektur.
-
-### Tahap 1 — Analisis dan Perancangan
-
-Sebelum coding:
-
-- Periksa workspace dan project yang sudah tersedia.
-- Identifikasi teknologi yang sudah digunakan.
-- Buat struktur folder.
+**Tahap 1 — Analisis dan Perancangan**
+- Periksa project yang sudah tersedia.
+- Identifikasi teknologi dan struktur project.
+- Analisis kebutuhan.
 - Buat ERD.
 - Buat diagram arsitektur.
-- Buat diagram alur event.
+- Buat rancangan event.
 - Buat rancangan workflow Temporal.
-- Tentukan kontrak API dan struktur event.
-- Jelaskan bagaimana Laravel, database, event handler, Temporal Server, dan Worker saling berkomunikasi.
+- Tentukan struktur API.
 
-### Tahap 2 — Implementasi Pencatatan Perkembangan
-
-Bangun:
-
+**Tahap 2 — Modul Pendaftaran Pasien**
 - Database pasien.
-- Data sesi pemeriksaan.
-- Toxin Assessment.
-- Body dan Ketosis.
+- Pengelolaan data pasien.
+- Kategori pasien.
+- Akun pasien.
+- Dashboard dan API.
+
+**Tahap 3 — Modul Kunjungan/Booking**
+- Jadwal kunjungan pertama.
+- Pengajuan jadwal berikutnya.
+- Konfirmasi jadwal.
+- Riwayat kunjungan.
+- Penghitungan pertemuan MHLS.
+
+**Tahap 4 — Modul Pemeriksaan**
+- Sesi pemeriksaan.
+- Gejala.
+- Darah.
+- Tubuh.
+- Metabolik.
+- Glukosa-Keton.
+- Evaluasi Aktivitas Mandiri.
 - Riwayat pemeriksaan.
-- API pencatatan.
-- Dashboard admin.
 
-### Tahap 3 — Implementasi Monitoring Pasien
-
-Bangun:
-
-- Aplikasi mobile pasien.
-- Autentikasi pasien.
-- Dashboard perkembangan.
+**Tahap 5 — Modul Monitoring Perkembangan Pasien**
+- Dashboard web dan mobile.
 - Riwayat pemeriksaan.
 - Grafik perkembangan.
+- Ringkasan perkembangan pasien.
 
-### Tahap 4 — Implementasi Aktivitas Mandiri
-
-Bangun:
-
-- Pembuatan instruksi aktivitas.
-- Pengaturan jadwal.
-- Daftar aktivitas pasien.
+**Tahap 6 — Modul Aktivitas Mandiri**
+- Pembuatan instruksi.
+- Pengelolaan periode dan pengingat.
+- Tampilan instruksi pasien.
 - Pelaporan aktivitas.
-- Monitoring aktivitas oleh admin.
+- Monitoring laporan oleh klinik.
+- Penanganan laporan offline.
 
-### Tahap 5 — Integrasi EDA
-
-Bangun:
-
-- Event producer.
-- Transactional outbox.
-- Event dispatcher.
-- Event handler.
-- Idempotency.
-- Event logging.
-- Integrasi event dengan Temporal Client.
-
-### Tahap 6 — Integrasi Temporal
-
-Bangun:
-
-- Temporal Server.
-- Temporal Worker.
-- ActivityPlanWorkflow.
-- Activity pengiriman notifikasi.
-- Durable Timer.
-- Signal pelaporan pasien.
-- Mekanisme perubahan instruksi.
-- Mekanisme pembatalan.
-- Retry dan recovery.
-
-### Tahap 7 — Pengujian dan Dokumentasi
-
-Lakukan pengujian fungsional, event, workflow, serta skenario gangguan.
-
-Pastikan semua komponen benar-benar berjalan dan dapat didemonstrasikan.
-
----
-
-# 17. HASIL AKHIR YANG DIHARAPKAN
-
-Hasil akhir bukan sekadar mockup atau desain UI.
-
-Saya membutuhkan aplikasi yang benar-benar dapat dijalankan dengan komponen berikut:
-
-- Web Admin yang berfungsi.
-- Mobile App Pasien yang berfungsi.
-- Backend API.
-- Database.
-- Event Producer dan Consumer.
+**Tahap 7 — Integrasi EDA dan Temporal**
 - Transactional Outbox.
+- Event Dispatcher.
+- Event Handler.
+- Idempotency.
 - Temporal Server.
 - Temporal Worker.
-- Workflow aktivitas mandiri.
+- Workflow aktivitas.
 - Durable Timer.
 - Signal.
-- Notification integration.
-- Logging dan monitoring.
-- Docker Compose.
-- Dokumentasi instalasi dan pengujian.
+- Retry.
+- Recovery.
 
-Buat juga satu skenario demonstrasi lengkap:
+**Tahap 8 — Pengujian dan Dokumentasi**
+- Pengujian fungsional.
+- Pengujian event.
+- Pengujian workflow.
+- Pengujian gangguan Worker.
+- Dokumentasi API.
+- Dokumentasi event.
+- Dokumentasi workflow.
+- Panduan instalasi dan penggunaan.
 
-Petugas membuat instruksi aktivitas mandiri untuk seorang pasien MHLS selama tiga hari. Sistem menerbitkan event `ActivityPlanCreated`. Event handler memulai workflow Temporal. Workflow menunggu jadwal pengingat, mengirim notifikasi, menunggu laporan pasien, menerima laporan melalui Signal, kemudian melanjutkan ke jadwal berikutnya hingga periode instruksi selesai.
+Setiap increment harus dapat diuji sebelum dilanjutkan ke increment berikutnya.
 
-Demonstrasikan pula bahwa ketika Worker dihentikan dan dijalankan kembali, workflow tetap dapat dilanjutkan.
+## 14. Instruksi Penting untuk Antigravity
 
-**Prioritas utama penelitian ini adalah membuktikan bahwa EDA dan Temporal benar-benar diterapkan dan memiliki fungsi yang jelas dalam proses pencatatan, monitoring, dan pengelolaan aktivitas mandiri pasien.**
+Sebelum melakukan coding:
+1. Baca dan pahami seluruh konsep sistem.
+2. Periksa project dan teknologi yang sudah tersedia.
+3. Jangan langsung membuat seluruh fitur sekaligus.
+4. Buat rancangan database dan arsitektur terlebih dahulu.
+5. Pastikan lima modul utama dan enam kelompok data pemeriksaan terakomodasi.
+6. Pisahkan data pemeriksaan, data monitoring, evaluasi aktivitas, dan laporan aktivitas pasien.
+7. Pastikan alur pasien umum dan MHLS dibedakan.
+8. Pastikan EDA dan Temporal memiliki tanggung jawab yang jelas.
+9. Jangan membuat asumsi terhadap data atau aturan klinik yang belum tersedia. Catat sebagai kebutuhan konfirmasi.
+10. Implementasikan sistem secara bertahap dan pastikan setiap fitur benar-benar berjalan.
 
-Jangan hanya membuat aplikasi yang terlihat bagus. Pastikan arsitektur, event, workflow, timer, signal, retry, dan recovery benar-benar diimplementasikan serta dapat diuji.
+**Prioritas utama:** menghasilkan sistem monitoring perkembangan pasien yang sesuai dengan proses DSH, memiliki pencatatan pemeriksaan yang terstruktur, mampu menampilkan perkembangan pasien dari waktu ke waktu, serta menerapkan EDA dan Temporal secara nyata untuk mengelola komunikasi antarproses dan workflow aktivitas mandiri pasien MHLS.
